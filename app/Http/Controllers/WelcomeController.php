@@ -168,35 +168,19 @@ class WelcomeController extends Controller
                 ->get();
 
             $requestedQty = (int) $product['qty'];
+            
+            // ✅ Compute total remaining quantity across all valid batches
+            $totalAvailable = $batches->sum('remaining_quantity');
 
-            $enoughStock = false;
-
-            foreach ($batches as $batch) {
-                $available = (int) $batch->remaining_quantity;
-
-                // ✅ Only check one batch at a time
-                if ($requestedQty <= $available) {
-                    $enoughStock = true;
-                    break; // sufficient stock in this batch
-                } else {
-                    // Not enough in this batch — fail immediately
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Insufficient stock for product: ' . $dbProduct->name .
-                            ' in Batch #' . $batch->batch .
-                            ' (Available: ' . $available . ', Requested: ' . $requestedQty . ')'
-                    ], 400);
-                }
-            }
-
-            // If there are no batches with enough stock
-            if (!$enoughStock) {
+            if ($totalAvailable < $requestedQty) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No available batch with sufficient stock for product: ' . $dbProduct->name,
+                    'message' => 'Insufficient total stock for product: ' . $dbProduct->name .
+                        ' (Available: ' . $totalAvailable . ', Requested: ' . $requestedQty . ')'
                 ], 400);
             }
         }
+
 
 
         $status = $request->customer_type === 'walkin' ? 'approve' : 'pending';
@@ -232,6 +216,24 @@ class WelcomeController extends Controller
             ]);
 
             $message = 'Manual purchase request saved successfully!';
+        }
+
+        // Only deduct inventory if the order is immediately approved (e.g., walk-in)
+        if ($status === 'approve') {
+            foreach ($validated['products'] as $product) {
+                Inventory::create([
+                    'product_id' => $product['product_id'],
+                    'type'       => 'out',
+                    'quantity'   => $product['qty'],
+                    'reason'     => 'sold',
+                ]);
+
+                \App\Models\StockBatch::reduceFIFO(
+                    $product['product_id'],
+                    $product['qty'],
+                    'Walk-In Order (For product id #' . $product['product_id'] . ')'
+                );
+            }
         }
 
         return response()->json([

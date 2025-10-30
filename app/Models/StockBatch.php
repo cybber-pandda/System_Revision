@@ -98,49 +98,45 @@ class StockBatch extends Model
     //     }
     // }
 
-    public static function reduceFIFO($productId, $quantity, $note = null)
+    public static function reduceFIFO($productId, $quantity, $reason = null)
     {
-        $neededQty = $quantity;
+        $remainingQty = $quantity;
 
-        $today = now()->toDateString();
-
+        // ✅ Only get non-expired batches with remaining stock, sorted FIFO
         $batches = self::where('product_id', $productId)
             ->where('remaining_quantity', '>', 0)
-            ->where(function ($q) use ($today) {
-                $q->whereNull('expiry_date')  // batches with no expiration
-                    ->orWhere('expiry_date', '>=', $today); // not expired
+            ->where(function ($query) {
+                $query->whereNull('expiry_date')
+                    ->orWhere('expiry_date', '>=', now());
             })
             ->orderBy('received_date', 'asc')
             ->get();
 
         foreach ($batches as $batch) {
-            if ($neededQty <= 0) break;
+            if ($remainingQty <= 0) break;
 
-            $takeQty = min($batch->remaining_quantity, $neededQty);
-            $batch->decrement('remaining_quantity', $takeQty);
+            $deduct = min($remainingQty, $batch->remaining_quantity);
+            $batch->remaining_quantity -= $deduct;
+            $batch->save();
 
-            // Create a StockMovement record
-            StockMovement::create([
+            // Record inventory movement or log if needed
+            \App\Models\StockMovement::create([
                 'product_id' => $productId,
-                'batch_id' => $batch->id,
-                'type' => 'out',
-                'quantity' => $takeQty,
-                'reference' => $note,
+                'batch_id'   => $batch->id,
+                'quantity'   => $deduct,
+                'type'       => 'out',
+                'reason'     => $reason,
             ]);
 
-            if ($note) {
-                $batch->note = trim(($batch->note ? $batch->note . ' | ' : '') . $note);
-                $batch->save();
-            }
-
-            $neededQty -= $takeQty;
+            $remainingQty -= $deduct;
         }
 
-        if ($neededQty > 0) {
-            // Optional: throw exception or log if stock not enough
-            throw new \Exception("Insufficient non-expired stock for product ID {$productId}. Remaining needed: {$neededQty}");
+        // If still remaining, warn that stock might be insufficient
+        if ($remainingQty > 0) {
+            \Log::warning("Insufficient stock when reducing FIFO for product #{$productId}. Missing {$remainingQty} qty.");
         }
     }
+
 
     /**
      * Restore stock (used for returns, cancellations, etc.)
