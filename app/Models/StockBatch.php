@@ -102,7 +102,7 @@ class StockBatch extends Model
     {
         $remainingQty = $quantity;
 
-        // ✅ Only get non-expired batches with remaining stock, sorted FIFO
+        // ✅ Get only non-expired batches first (FIFO)
         $batches = self::where('product_id', $productId)
             ->where('remaining_quantity', '>', 0)
             ->where(function ($query) {
@@ -112,6 +112,7 @@ class StockBatch extends Model
             ->orderBy('received_date', 'asc')
             ->get();
 
+        // ✅ FIFO deduction for valid (non-expired) batches
         foreach ($batches as $batch) {
             if ($remainingQty <= 0) break;
 
@@ -119,7 +120,7 @@ class StockBatch extends Model
             $batch->remaining_quantity -= $deduct;
             $batch->save();
 
-            // Record inventory movement or log if needed
+            // Record stock movement
             \App\Models\StockMovement::create([
                 'product_id' => $productId,
                 'batch_id'   => $batch->id,
@@ -131,24 +132,44 @@ class StockBatch extends Model
             $remainingQty -= $deduct;
         }
 
-        // If still remaining, warn that stock might be insufficient
-        if ($remainingQty > 0) {
-            \Log::warning("Insufficient stock when reducing FIFO for product #{$productId}. Missing {$remainingQty} qty.");
+        // ⚠️ Handle expired batches
+        $expiredBatches = self::where('product_id', $productId)
+            ->whereNotNull('expiry_date')
+            ->where('expiry_date', '<', now())
+            ->get();
+
+    foreach ($expiredBatches as $expired) {
+        if ($expired->remaining_quantity > 0) {
+            $expiredQty = $expired->remaining_quantity;
+
+            // Reduce only the remaining quantity (not total quantity)
+            $expired->update(['remaining_quantity' => 0]);
+
+            // Log the expired quantity in StockMovement
+            \App\Models\StockMovement::create([
+                'product_id' => $productId,
+                'batch_id'   => $expired->id,
+                'quantity'   => $expiredQty,
+                'type'       => 'out',
+                'reason'     => 'Expired stock automatically marked as depleted',
+            ]);
         }
     }
 
 
-    /**
-     * Restore stock (used for returns, cancellations, etc.)
-     * Adds quantity back to batches based on FIFO (First-In, First-Out)
-     */
+        // Warn if not enough stock
+        if ($remainingQty > 0) {
+            \Log::warning("Insufficient stock when reducing FIFO for product #{$productId}. Missing {$remainingQty} qty.");
+        }
+    }
+    
     public static function restoreFIFO($productId, $quantity, $note = null)
     {
         $restoreQty = $quantity;
 
-        // Fetch oldest batches first (FIFO)
+        // Fetch latest batches first (LIFO direction for restoration)
         $batches = self::where('product_id', $productId)
-            ->orderBy('received_date', 'asc')
+            ->orderBy('received_date', 'desc')
             ->get();
 
         foreach ($batches as $batch) {
@@ -156,20 +177,19 @@ class StockBatch extends Model
 
             // Maximum we can restore into this batch
             $availableSpace = $batch->quantity - $batch->remaining_quantity;
-            $addQty = min($availableSpace, $restoreQty);
+            if ($availableSpace <= 0) continue; // already full
 
+            $addQty = min($availableSpace, $restoreQty);
             $batch->increment('remaining_quantity', $addQty);
 
             // Log the movement
-            if ($addQty > 0) {
-                StockMovement::create([
-                    'product_id' => $productId,
-                    'batch_id' => $batch->id,
-                    'type' => 'in',
-                    'quantity' => $addQty,
-                    'reference' => $note,
-                ]);
-            }
+            StockMovement::create([
+                'product_id' => $productId,
+                'batch_id'   => $batch->id,
+                'type'       => 'in',
+                'quantity'   => $addQty,
+                'reference'  => $note,
+            ]);
 
             $restoreQty -= $addQty;
         }
@@ -177,19 +197,19 @@ class StockBatch extends Model
         // Optional: if leftover quantity, create a new batch
         if ($restoreQty > 0) {
             $newBatch = self::create([
-                'product_id' => $productId,
-                'quantity' => $restoreQty,
-                'remaining_quantity' => $restoreQty,
-                'received_date' => now(),
-                'note' => $note ?? 'Manual stock return',
+                'product_id'          => $productId,
+                'quantity'            => $restoreQty,
+                'remaining_quantity'  => $restoreQty,
+                'received_date'       => now(),
+                'note'                => $note ?? 'Manual stock return',
             ]);
 
             StockMovement::create([
                 'product_id' => $productId,
-                'batch_id' => $newBatch->id,
-                'type' => 'in',
-                'quantity' => $restoreQty,
-                'reference' => $note ?? 'Manual stock return',
+                'batch_id'   => $newBatch->id,
+                'type'       => 'in',
+                'quantity'   => $restoreQty,
+                'reference'  => $note ?? 'Manual stock return',
             ]);
         }
     }

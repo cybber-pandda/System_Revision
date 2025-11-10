@@ -20,6 +20,14 @@ $(document).ready(function () {
             { data: "customer_name", name: "customer_name", width: "20%" },
             { data: "total_items", name: "total_items", className: "dt-left-int", orderable: false, searchable: false, width: "10%" },
             { data: "grand_total", name: "grand_total", className: "dt-left-int", orderable: false, searchable: false, width: "10%" },
+            { 
+                data: "delivery_schedule", // new column
+                name: "delivery_schedule",
+                className: "dt-left-int",
+                width: "15%",
+                orderable: true,
+                searchable: true,
+            },
             { data: "tracking_number", name: "tracking_number", width: "15%" },
             { data: "action", name: "action", orderable: false, searchable: false, width: "10%" },
         ],

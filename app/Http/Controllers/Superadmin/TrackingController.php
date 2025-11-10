@@ -273,6 +273,11 @@ class TrackingController extends Controller
                 ->addColumn('order_number', function ($order) {
                     return $order->order_number ?? '-';
                 })
+                ->addColumn('delivery_datetime', function($order) {
+                    return optional($order->delivery)->delivery_datetime 
+                        ? \Carbon\Carbon::parse($order->delivery->delivery_datetime)->format('Y-m-d H:i')
+                        : '<span class="text-danger">Not Scheduled</span>';
+                })
                 ->addColumn('total_amount', function ($order) {
                     $purchaseRequestId = null;
                     
@@ -326,7 +331,7 @@ class TrackingController extends Controller
                     return '<span class="badge bg-secondary text-capitalize">' . e($status ?? 'N/A') . '</span>';
                 })
 
-                ->rawColumns(['action', 'delivery_man', 'customer_address'])
+                ->rawColumns(['action', 'delivery_man', 'customer_address', 'delivery_datetime'])
                 ->make(true);
         }
 
@@ -344,6 +349,7 @@ class TrackingController extends Controller
             'delivery_id' => 'required|exists:deliveries,id',
             'pr_id' => 'required|exists:purchase_requests,id',
             'delivery_rider_id' => 'required|exists:users,id',
+            'delivery_datetime' => 'required|date', // add this line
         ]);
 
         if ($validator->fails()) {
@@ -356,6 +362,7 @@ class TrackingController extends Controller
         try {
             $delivery = Delivery::findOrFail($request->delivery_id);
             $delivery->delivery_rider_id = $request->delivery_rider_id;
+            $delivery->delivery_datetime = $request->delivery_datetime; // save the datetime
             $delivery->status = 'assigned';
             $delivery->save();
 
@@ -430,7 +437,7 @@ class TrackingController extends Controller
                 ->addColumn('order_number', fn($order) => $order->order_number ?? 'N/A')
                 ->addColumn('customer_name', fn($order) => optional($order->user)->name ?? 'N/A')
                 ->addColumn('total_items', fn($order) => $order->items->sum('quantity') ?? 0)
-            ->addColumn('grand_total', function ($order) {
+                ->addColumn('grand_total', function ($order) {
                 $purchaseRequestId = null;
                 
                 if (preg_match('/REF (\d+)-/', $order->order_number, $matches)) {
@@ -459,6 +466,11 @@ class TrackingController extends Controller
                 return '₱' . number_format($grandTotal, 2);
             })
                 ->addColumn('address', fn($order) => optional($order->b2bAddress)->full_address ?? 'N/A')
+                ->addColumn('delivery_datetime', function ($order) {
+                    return optional($order->delivery)->delivery_datetime
+                        ? \Carbon\Carbon::parse($order->delivery->delivery_datetime)->format('Y-m-d H:i')
+                        : '<span class="text-muted">Not Scheduled</span>';
+                })
                 ->addColumn('action', function ($order) {
                     $status = $order->delivery->status ?? 'unknown';
 
@@ -523,7 +535,7 @@ class TrackingController extends Controller
                         });
                     }
                 })
-                ->rawColumns(['action'])
+                ->rawColumns(['action', 'delivery_datetime'])
                 ->make(true);
         }
 

@@ -63,6 +63,14 @@ $(document).ready(function () {
                 orderable: false,
                 width: "5%",
             },
+            { 
+                data: 'reserved_stock', //new 
+                name: 'reserved_stock',
+                className: "dt-left-int",
+                responsivePriority: 1,
+                orderable: false,
+                width: "5%",
+            },
             {
                 data: "inventory_breakdown",
                 name: "inventory_breakdown",

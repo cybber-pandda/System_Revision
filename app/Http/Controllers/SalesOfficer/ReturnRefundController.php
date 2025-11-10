@@ -57,7 +57,14 @@ class ReturnRefundController extends Controller
                     return '<a href="' . $imagePath . '" target="_blank">Show Photo</a>';
                 })
                 ->editColumn('created_at', fn($pr) => Carbon::parse($pr->created_at)->format('F d, Y h:i A'))
-                ->addColumn('action', fn($pr) => '<button class="btn btn-sm btn-primary review-return" data-id="' . $pr->id . '">Review</button>')
+                //->addColumn('action', fn($pr) => '<button class="btn btn-sm btn-primary review-return" data-id="' . $pr->id . '">Review</button>')
+                ->addColumn('action', function ($pr) {
+                    $disabled = in_array($pr->status, ['approved', 'rejected']) ? 'disabled' : '';
+                    $btnClass = $disabled ? 'btn-secondary' : 'btn-primary';
+                    $label = $disabled ? ucfirst($pr->status) : 'Review';
+
+                    return '<button class="btn btn-sm ' . $btnClass . ' review-return" data-id="' . $pr->id . '" ' . $disabled . '>' . $label . '</button>';
+                })
                 ->filter(function ($query) use ($request) {
                     if ($search = $request->input('search.value')) {
                         $query->whereHas('purchaseRequest.customer', function ($q) use ($search) {
@@ -85,7 +92,14 @@ class ReturnRefundController extends Controller
                     return '<a href="' . $imagePath . '" target="_blank">Show Photo</a>';
                 })
                 ->editColumn('created_at', fn($pr) => Carbon::parse($pr->created_at)->format('F d, Y h:i A'))
-                ->addColumn('action', fn($pr) => '<button class="btn btn-sm btn-success process-refund" data-id="' . $pr->id . '">Process</button>')
+                //->addColumn('action', fn($pr) => '<button class="btn btn-sm btn-success process-refund" data-id="' . $pr->id . '">Process</button>')
+                ->addColumn('action', function ($pr) {
+                    $disabled = in_array($pr->status, ['approved', 'rejected']) ? 'disabled' : '';
+                    $btnClass = $disabled ? 'btn-secondary' : 'btn-success';
+                    $label = $disabled ? ucfirst($pr->status) : 'Process';
+
+                    return '<button class="btn btn-sm ' . $btnClass . ' process-refund" data-id="' . $pr->id . '" ' . $disabled . '>' . $label . '</button>';
+                })
                 ->filter(function ($query) use ($request) {
                     if ($search = $request->input('search.value')) {
                         $query->whereHas('purchaseRequest.customer', function ($q) use ($search) {
@@ -136,7 +150,7 @@ class ReturnRefundController extends Controller
             <p><strong>Date Processed:</strong> ' . $refund->created_at->format('F d, Y h:i A') . '</p>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-success process-refund-confirm" data-id="' . $refund->id . '">Process</button>
+            <button class="btn btn-success process-refund-confirm" data-id="' . $refund->id . '">Approve</button>
             <button class="btn btn-danger reject-refund" data-id="' . $refund->id . '">Reject</button>
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
         </div>';
@@ -153,7 +167,7 @@ class ReturnRefundController extends Controller
         Notification::create([
             'user_id' => $customerPr->customer_id,
             'type' => 'return_purchase',
-            'message' => 'Your return request has been approved. Please claim it at the store.',
+            'message' => 'Your return or replacement request has been approved! You may now visit the store to complete the process. <br><a href="' . route('b2b.purchase.rr') . '">Visit Link</a>',
             'link' => route('b2b.purchase.rr'),
         ]);
 
@@ -172,7 +186,7 @@ class ReturnRefundController extends Controller
         Notification::create([
             'user_id' => $customerPr->customer_id,
             'type' => 'reject_purchase',
-            'message' => 'Your return request has been declined.',
+            'message' => 'We’re sorry, but your return/refund request has been declined. For more details, please check your request status or reach out to us for assistance. <br><a href="' . route('b2b.purchase.rr') . '">Visit Link</a>',
             'link' => route('b2b.purchase.rr'),
         ]);
 
@@ -191,7 +205,7 @@ class ReturnRefundController extends Controller
         Notification::create([
             'user_id' => $customerPr->customer_id,
             'type' => 'refund_purchase',
-            'message' => 'Your refund request has been approved. Please claim it at the store.',
+            'message' => 'Your refund request has been approved. Please drop by the store to claim it, thank you for your patience! <br><a href="' . route('b2b.purchase.rr') . '">Visit Link</a>',
             'link' => route('b2b.purchase.rr'),
         ]);
 
@@ -210,7 +224,7 @@ class ReturnRefundController extends Controller
         Notification::create([
             'user_id' => $customerPr->customer_id,
             'type' => 'refund_purchase',
-            'message' => 'Your refund request has been declined.',
+            'message' => 'Unfortunately, we weren’t able to approve your refund request. Please review the details or reach out to us for assistance. <br><a href="' . route('b2b.purchase.rr') . '">Visit Link</a>',
             'link' => route('b2b.purchase.rr'),
         ]);
 

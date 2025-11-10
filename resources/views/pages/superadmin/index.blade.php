@@ -122,7 +122,7 @@
                                 <button type="button" class="btn btn-outline-primary">Today</button>
                                 <button type="button" class="btn btn-outline-primary d-none d-md-block">Week</button>
                                 <button type="button" class="btn btn-primary">Month</button>
-                                <button type="button" class="btn btn-outline-primary">Year</button>
+                                <!-- <button type="button" class="btn btn-outline-primary">Year</button> -->
                             </div>
                         </div>
                     </div>

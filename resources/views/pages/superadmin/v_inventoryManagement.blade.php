@@ -25,6 +25,7 @@
                 <th>In</th>
                 <th>Out</th>
                 <th>Stock</th>
+                <th>Safety Stock</th>
                 <th>Inventory Breakdown</th>
                 <th>Action</th>
             </tr>

@@ -298,6 +298,18 @@ class ACPaymentController extends Controller
             'credit_limit' => min($user->credit_limit + $payment->paid_amount, 300000)
         ]);
 
+        // Notification for approved payment
+        Notification::create([
+            'user_id' => $user->id,
+            'type'    => 'payment_approved',
+            'message' => 'Your payment for purchase request <strong>#' . 
+                        e($customerPR->id) . 
+                        '</strong> with the reference number <strong>' . 
+                        e($payment->reference_number ?? 'N/A') . 
+                        '</strong> of amount <strong>₱' . number_format($payment->paid_amount, 2) . 
+                        '</strong> has been approved. <br><a href="' . route('b2b.purchase.credit') . '">Visit Link</a>',
+        ]);
+
         return response()->json(['message' => 'Payment has been approved successfully.']);
     }
 
@@ -342,6 +354,27 @@ class ACPaymentController extends Controller
         if ($payment->status === 'reject') {
             return response()->json(['message' => 'This payment is already rejected.'], 400);
         }
+                // ✅ Keep overdue status unchanged if already overdue
+        if ($payment->status === 'overdue') {
+            $payment->notes = request()->input('reason');
+            $payment->save();
+
+            // Send rejection notification (same as before)
+            $purchaseRequest = PurchaseRequest::find($payment->purchase_request_id);
+
+            if ($purchaseRequest && $purchaseRequest->customer_id) {
+                Notification::create([
+                    'user_id' => $purchaseRequest->customer_id,
+                    'type' => 'payment_rejected',
+                    'message' => 'Your overdue payment for purchase request <strong>#' .
+                        e($payment->purchase_request_id) .
+                        '</strong> was rejected. <br><strong>Reason:</strong> ' .
+                        e($payment->notes ?? 'No reason provided'),
+                ]);
+            }
+
+            return response()->json(['message' => 'Overdue payment was rejected, status unchanged (still overdue).']);
+        }
 
         $payment->status = 'reject';
         $payment->notes = request()->input('reason');
@@ -361,7 +394,8 @@ Notification::create([
         '</strong> with the reference number <strong>' . 
         e($payment->reference_number ?? 'N/A') . 
         '</strong> has been rejected. <br><strong>Reason:</strong> ' . 
-        e($payment->notes ?? $reason ?? 'No reason provided'),
+        e($payment->notes ?? $reason ?? 'No reason provided') .
+        '<br><a href="' . route('b2b.purchase.credit') . '">Visit Link</a>',
 ]);
 } else {
     \Log::warning('❌ Payment rejection notification failed: No valid B2B user for payment #' . $payment->id);
@@ -388,6 +422,18 @@ Notification::create([
         $user = User::findOrFail($customerPR->customer_id);
         $user->update([
             'credit_limit' => min($user->credit_limit + $payment->paid_amount, 300000)
+        ]);
+
+        // Notification for approved partial payment
+        Notification::create([
+            'user_id' => $user->id,
+            'type'    => 'payment_approved',
+            'message' => 'Your partial payment for purchase request <strong>#' . 
+                        e($customerPR->id) . 
+                        '</strong> with the reference number <strong>' . 
+                        e($payment->reference_number ?? 'N/A') . 
+                        '</strong> of amount <strong>₱' . number_format($payment->paid_amount, 2) . 
+                        '</strong> has been approved. <br><a href="' . route('b2b.purchase.credit') . '">Visit Link</a>',
         ]);
 
         return response()->json([
@@ -611,89 +657,90 @@ public function account_receivable(Request $request)
     }
 
     public function account_receivable_details($prid)
-    {
-        $today = Carbon::today();
+        {
+            $today = Carbon::today();
 
-        $purchaseRequest = PurchaseRequest::with(['customer', 'creditPayment', 'creditPartialPayments'])
-            ->where('id', $prid)
-            ->first();
+            $purchaseRequest = PurchaseRequest::with(['customer', 'creditPayment', 'creditPartialPayments'])
+                ->where('id', $prid)
+                ->first();
 
-        if (!$purchaseRequest) {
-            return response()->json(['error' => 'PR not found'], 404);
-        }
-
-        $pendingStraight = 0;
-        $overdueStraight = 0;
-        $pendingPartial = 0;
-        $overduePartial = 0;
-
-        // Straight Payment
-        if ($purchaseRequest->creditPayment) {
-            if ($purchaseRequest->creditPayment->status === 'pending') {
-                $pendingStraight = $purchaseRequest->credit_amount;
+            if (!$purchaseRequest) {
+                return response()->json(['error' => 'PR not found'], 404);
             }
 
-            if (
-                $purchaseRequest->creditPayment->status === 'overdue' &&
-                $purchaseRequest->creditPayment->due_date < $today
-            ) {
-                $overdueStraight = $purchaseRequest->credit_amount;
+            $pendingStraight = 0;
+            $overdueStraight = 0;
+            $pendingPartial = 0;
+            $overduePartial = 0;
+
+            // Straight Payment
+            if ($purchaseRequest->creditPayment) {
+                if ($purchaseRequest->creditPayment->status === 'pending'||
+                    $purchaseRequest->creditPayment->status === 'reject') {
+                    $pendingStraight = $purchaseRequest->credit_amount;
+                }
+
+                if (
+                    $purchaseRequest->creditPayment->status === 'overdue' &&
+                    $purchaseRequest->creditPayment->due_date < $today
+                ) {
+                    $overdueStraight = $purchaseRequest->credit_amount;
+                }
             }
+
+            // Partial Payments
+            if ($purchaseRequest->creditPartialPayments->count()) {
+                $pendingPartial = $purchaseRequest->creditPartialPayments
+                    ->whereIn('status', ['pending', 'reject'])
+                    ->sum('amount_to_pay');
+
+                $overduePartial = $purchaseRequest->creditPartialPayments
+                    ->where('status', 'overdue')
+                    ->where('due_date', '<', $today)
+                    ->sum('amount_to_pay');
+            }
+
+            // Assign based on payment type
+            $pending = 0;
+            $overdue = 0;
+            $balance = 0;
+
+            if ($purchaseRequest->credit_payment_type === 'Straight Payment') {
+                $pending = $pendingStraight;
+                $overdue = $overdueStraight;
+                $balance = $pending;
+            } elseif ($purchaseRequest->credit_payment_type === 'Partial Payment') {
+                $pending = $pendingPartial;
+                $overdue = $overduePartial;
+                $balance = $pending;
+            }
+
+            $customer = $purchaseRequest->customer;
+
+            $customerAddress = B2BAddress::where('user_id', $customer->id)
+                ->where('status', 'active')
+                ->first();
+
+            $customerRequirement = B2BDetail::where('user_id', $customer->id)
+                ->where('status', 'approved')
+                ->first();
+
+            return response()->json([
+                'customer' => [
+                    'user_id' => $customer->id,
+                    'customer_name' => $customer->name,
+                    'customer_email' => $customer->email,
+                    'customer_creditlimit' => number_format($customer->credit_limit, 2),
+                    'pending' => number_format($pending, 2),
+                    'overdue' => number_format($overdue, 2),
+                    'balance' => number_format($balance, 2),
+                    'pr_id' => $purchaseRequest->id,
+                    'credit_payment_type' => $purchaseRequest->credit_payment_type,
+                ],
+                'customerAddress' => $customerAddress,
+                'customerRequirements' => $customerRequirement
+            ]);
         }
-
-        // Partial Payments
-        if ($purchaseRequest->creditPartialPayments->count()) {
-            $pendingPartial = $purchaseRequest->creditPartialPayments
-                ->where('status', 'pending')
-                ->sum('amount_to_pay');
-
-            $overduePartial = $purchaseRequest->creditPartialPayments
-                ->where('status', 'overdue')
-                ->where('due_date', '<', $today)
-                ->sum('amount_to_pay');
-        }
-
-        // Assign based on payment type
-        $pending = 0;
-        $overdue = 0;
-        $balance = 0;
-
-        if ($purchaseRequest->credit_payment_type === 'Straight Payment') {
-            $pending = $pendingStraight;
-            $overdue = $overdueStraight;
-            $balance = $pending + $overdue;
-        } elseif ($purchaseRequest->credit_payment_type === 'Partial Payment') {
-            $pending = $pendingPartial;
-            $overdue = $overduePartial;
-            $balance = $pending + $overdue;
-        }
-
-        $customer = $purchaseRequest->customer;
-
-        $customerAddress = B2BAddress::where('user_id', $customer->id)
-            ->where('status', 'active')
-            ->first();
-
-        $customerRequirement = B2BDetail::where('user_id', $customer->id)
-            ->where('status', 'approved')
-            ->first();
-
-        return response()->json([
-            'customer' => [
-                'user_id' => $customer->id,
-                'customer_name' => $customer->name,
-                'customer_email' => $customer->email,
-                'customer_creditlimit' => number_format($customer->credit_limit, 2),
-                'pending' => number_format($pending, 2),
-                'overdue' => number_format($overdue, 2),
-                'balance' => number_format($balance, 2),
-                'pr_id' => $purchaseRequest->id,
-                'credit_payment_type' => $purchaseRequest->credit_payment_type,
-            ],
-            'customerAddress' => $customerAddress,
-            'customerRequirements' => $customerRequirement
-        ]);
-    }
 
     public function account_receivable_payments($prid, Request $request)
     {

@@ -43,6 +43,7 @@ class PurchaseController extends Controller
                 'items.refundRequest'  // add this relation
             ])
                 ->where('customer_id', $userid)
+                ->whereIn('status', ['delivered', 'invoice_sent']) // ✅ Only show delivered or invoiced PRs
                 ->latest()
                 ->get();
 
@@ -164,7 +165,7 @@ foreach ($purchaseRequests as $pr) {
 
         $item = PurchaseRequestItem::with('purchaseRequest', 'product')->findOrFail($request->item_id);
 
-        if ($item->purchaseRequest->status !== 'delivered') {
+        if (!in_array($item->purchaseRequest->status, ['delivered', 'invoice_sent'])) {
             return response()->json(['message' => 'Only delivered items can be refunded.'], 422);
         }
 

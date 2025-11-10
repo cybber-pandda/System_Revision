@@ -14,6 +14,7 @@
                             <th>Customer</th>
                             <th>Total Items</th>
                             <th>Grand Total</th>
+                            <th>Delivery Schedule</th> <!-- new column -->
                             <th>Tracking #</th>
                             <th>Action</th>
                         </tr>

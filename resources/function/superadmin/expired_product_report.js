@@ -27,7 +27,17 @@ $(document).ready(function () {
         autoWidth: false,
         columns: [
             { data: "sku", name: "sku", width: "10%" },
-            { data: "name", name: "name", width: "20%" },
+            { data: "name", name: "name", width: "25%" },
+            {
+                data: "price",
+                name: "price",
+                width: "10%",
+                render: function (data) {
+                    return "₱ " + parseFloat(data).toLocaleString("en-PH", {
+                        minimumFractionDigits: 2,
+                    });
+                },
+            },
             {
                 data: "expiry_date",
                 name: "expiry_date",
@@ -39,17 +49,15 @@ $(document).ready(function () {
                 },
             },
             {
-                data: "price",
-                name: "price",
-                className: "dt-left-int",
-                responsivePriority: 1,
-                orderable: false,
+                data: "total_expired",
+                name: "total_expired",
                 width: "10%",
+                render: function (data) {
+                    return data ?? 0;
+                },
             },
-            { data: "stockIn", name: "stockIn", width: "10%" },
-            { data: "stockOut", name: "stockOut", width: "10%" },
-            { data: "current_stock", name: "current_stock", width: "10%" },
         ],
+        order: [[2, "desc"]], // sort by expiry_date (optional)
         drawCallback: function () {
             if (typeof lucide !== "undefined") {
                 lucide.createIcons();

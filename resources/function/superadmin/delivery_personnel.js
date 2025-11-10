@@ -39,6 +39,7 @@ $(document).ready(function () {
             },
             { data: "delivery_man", name: "delivery_man", width: "15%" },
             { data: "order_number", name: "order_number", width: "10%" },
+            { data: 'delivery_datetime', name: 'delivery_datetime' }, // new column
             {
                 data: "total_amount",
                 name: "total_amount",

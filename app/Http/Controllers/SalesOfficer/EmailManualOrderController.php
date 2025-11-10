@@ -111,32 +111,58 @@ class EmailManualOrderController extends Controller
         $order = ManualEmailOrder::findOrFail($request->id);
 
         if ($request->type === 'approve') {
-            if ($order->status !== 'approve') {
-                $order->status = 'approve';
-                $order->save();
 
-                $items = json_decode($order->purchase_request, true);
+            if ($order->status === 'approve') {
+                return response()->json(['message' => 'Order is already approved.'], 400);
+            }
 
-                if (!empty($items)) {
-                    foreach ($items as $item) {
-                        Inventory::create([
-                            'product_id' => $item['product_id'],
-                            'type'       => 'out',
-                            'quantity'   => $item['qty'],
-                            'reason'     => 'sold',
-                        ]);
+            $items = json_decode($order->purchase_request, true);
 
-                        StockBatch::reduceFIFO($item['product_id'],  $item['qty'], 'Email Manual Order (For product id #' .  $item['product_id'] . ')');
-                    }
-                }
+            // ✅ 1. Check if there’s enough stock for each item
+            foreach ($items as $item) {
+                $productId = $item['product_id'];
+                $requestedQty = (float) $item['qty'];
 
-                if (!empty($order->customer_email)) {
-                    Notification::route('mail', $order->customer_email)
-                        ->notify(new ManualOrderReceiptNotification($order, 'approve'));
+                // Calculate total available remaining stock for this product
+                $totalAvailable = StockBatch::where('product_id', $productId)
+                    ->where('remaining_quantity', '>', 0)
+                    ->sum('remaining_quantity');
+
+                if ($totalAvailable < $requestedQty) {
+                    return response()->json([
+                        'type' => 'error',
+                        'message' => "Insufficient stock for Product ID #{$productId}. 
+                        Requested: {$requestedQty}, Available: {$totalAvailable}"
+                    ], 400);
                 }
             }
 
-            return response()->json(['message' => 'Order approved and receipt sent successfully.']);
+            // ✅ 2. If all checks pass, approve and reduce stock
+            $order->status = 'approve';
+            $order->save();
+
+            foreach ($items as $item) {
+                Inventory::create([
+                    'product_id' => $item['product_id'],
+                    'type'       => 'out',
+                    'quantity'   => $item['qty'],
+                    'reason'     => 'sold',
+                ]);
+
+                StockBatch::reduceFIFO(
+                    $item['product_id'],
+                    $item['qty'],
+                    'Email Manual Order (For product id #' . $item['product_id'] . ')'
+                );
+            }
+
+            // ✅ 3. Send notification email
+            if (!empty($order->customer_email)) {
+                Notification::route('mail', $order->customer_email)
+                    ->notify(new ManualOrderReceiptNotification($order, 'approve'));
+            }
+
+            return response()->json(['message' => 'Order approved and stock updated successfully.']);
         }
 
         if ($request->type === 'reject') {

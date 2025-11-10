@@ -653,7 +653,7 @@
     </div>
     @endif
 
-    @if($showPaymentModal && $overduePayment && !request()->routeIs('purchase.credit'))
+    @if($showPaymentModal && $overduePayment && !request()->routeIs(['purchase.credit','notification.index']))
     <div class="modal fade" id="overduePaymentModal" tabindex="-1" data-backdrop="static" data-keyboard="false">
         <div class="modal-dialog">
             <div class="modal-content">

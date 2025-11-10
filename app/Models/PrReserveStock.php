@@ -168,41 +168,50 @@ class PrReserveStock extends Model
      * Mark reserved stock as completed (delivery successful).
      * Stock was already reduced when reserved, so just update status.
      */
-    public static function completeReservation($prId)
-    {
-        $reserve = self::where('pr_id', $prId)->first();
-
-        if ($reserve) {
-            $reserve->update(['status' => 'completed']);
+        public static function completeReservation($prId)
+        {
+            $reserves = self::where('pr_id', $prId)->get();
+        
+            if ($reserves->isNotEmpty()) {
+                foreach ($reserves as $reserve) {
+                    $reserve->update(['status' => 'completed']);
+                }
+            }
         }
-    }
+
 
     /**
      * Release reserved stock (PR cancelled or rejected).
      * Returns stock to inventory.
      */
+
+    
     public static function releaseReservedStock($prId, $type = 'returned')
-    {
-        $reserve = self::where('pr_id', $prId)->first();
-
-        if ($reserve && in_array($reserve->status, ['pending', 'approved'])) {
-            DB::transaction(function () use ($reserve, $type) {
-                // Restore stock back to batches
-                StockBatch::restoreFIFO($reserve->product_id, $reserve->qty, 'Released from PR#' . $reserve->pr_id);
-
-                // Log inventory as "in"
-                Inventory::create([
-                    'product_id' => $reserve->product_id,
-                    'type' => 'in',
-                    'quantity' => $reserve->qty,
-                    'reason' => 'returned',
-                ]);
-
-                // Update reserve status
-                $reserve->update(['status' => $type]);
-            });
+        {
+            $reserves = self::where('pr_id', $prId)
+                ->whereIn('status', ['pending', 'approved'])
+                ->get();
+        
+            if ($reserves->isNotEmpty()) {
+                DB::transaction(function () use ($reserves, $type) {
+                    foreach ($reserves as $reserve) {
+                        // Restore stock back to batches
+                        StockBatch::restoreFIFO($reserve->product_id, $reserve->qty, 'Released from PR#' . $reserve->pr_id);
+        
+                        // Log inventory as "in"
+                        Inventory::create([
+                            'product_id' => $reserve->product_id,
+                            'type' => 'in',
+                            'quantity' => $reserve->qty,
+                            'reason' => $type,
+                        ]);
+        
+                        // Update reserve status
+                        $reserve->update(['status' => $type]);
+                    }
+                });
+            }
         }
-    }
 
 
     /**

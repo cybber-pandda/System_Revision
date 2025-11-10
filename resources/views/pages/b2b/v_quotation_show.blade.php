@@ -171,14 +171,20 @@
 
                     </table>
 
-                    <div style="display: flex; justify-content:space-between;font-size:12px;margin-bottom:60px;">
-                        <span style="margin-bottom:5px;">
-                            <b>Delivery Date:</b><br>
-                            {{ $delivery_date }}
-                                @if($show_note && !empty($note_message))
-                                <br><small><i>Note: {{ $note_message }}</i></small>
-                                @endif
-                    </div>
+                <div style="display: flex; justify-content:space-between; font-size:12px; margin-bottom:60px;">
+                    <span style="margin-bottom:5px;">
+                        <b>Delivery Date:</b><br>
+                        {{ $delivery_date }}
+                        <br>
+                        <small><i>
+                            Note: This quotation is valid for 2 days from the date of issuance
+                            @if($show_note && !empty($note_message))
+                                — {{ $note_message }}
+                            @endif
+                            .
+                        </i></small>
+                    </span>
+                </div>
 
                 </div>
                 <div class="text-right" style="margin-top: 10px;margin-bottom: 60px; display: flex; justify-content: relative; gap:3px">
@@ -473,7 +479,7 @@
                                                     showConfirmButton: true,
                                                     confirmButtonText: 'View Order'
                                                 }).then(() => {
-                                                    window.location.href = `/b2b/quotations/review?track_id=${id}`;
+                                                      window.location.href = "{{ route('b2b.purchase.order') }}";
                                                 });
                                             },
                                             error: function(error) {
@@ -527,10 +533,11 @@
                     $('#paymentModal').modal('hide');
                     Swal.fire({
                         icon: 'success',
-                        title: 'Payment Submitted',
-                        html: 'Your proof of payment has been uploaded. Please wait for confirmation.',
+                        title: 'Order Placed',
+                        html: 'Your order has been successfully placed. Please prepare payment upon delivery.',
+                        confirmButtonText: 'View Order'
                     }).then(() => {
-                        window.location.href = `/b2b/quotations/review?track_id=${$('#modal_quotation_id').val()}`;
+                        window.location.href = "{{ route('b2b.purchase.order') }}";
                     });
                 },
                 error: function(xhr) {
@@ -594,6 +601,7 @@
             });
         });
 
+        
     });
 </script>
 @endpush

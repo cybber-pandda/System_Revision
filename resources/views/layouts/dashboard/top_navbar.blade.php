@@ -24,6 +24,7 @@
                 </form> -->
 
                 <ul class="navbar-nav">
+                    <!--
                     <li class="theme-switcher-wrapper nav-item">
                         <input type="checkbox" value="" id="theme-switcher">
                         <label for="theme-switcher">
@@ -35,7 +36,7 @@
                                 </div>
                             </div>
                         </label>
-                    </li>
+                    </li> -->
                     @if(Auth::user()->role != 'b2b')
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="messageDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -164,6 +165,7 @@
                             <li class="category-heading text-dark fw-bolder">Quotation</li>
                             <li class="nav-item {{ Route::is('salesofficer.sent-quotations.index') ? 'active' : '' }}"><a class="nav-link" href="{{ route('salesofficer.send-quotations.index') }}">Sent Quotations</a></li>
                             <li class="nav-item {{ Route::is('salesofficer.rejected-quotations.index') ? 'active' : '' }}"><a class="nav-link" href="{{ route('salesofficer.rejected-quotations.index') }}">Rejected Quotations</a></li>
+                            <li class="nav-item {{ Route::is('salesofficer.cancelled-quotations.*') ? 'active' : '' }}"><a class="nav-link" href="{{ route('salesofficer.cancelled-quotations.index') }}">Cancelled Quotations</a></li>
                             <li class="category-heading text-dark fw-bolder">Purchase Order</li>
                             <li class="nav-item {{ Route::is('salesofficer.submitted-order.index') ? 'active' : '' }}"><a class="nav-link" href="{{ route('salesofficer.submitted-order.index') }}">B2B Submitted PO</a></li>
                             <li class="category-heading text-dark fw-bolder">Sales Invoice</li>

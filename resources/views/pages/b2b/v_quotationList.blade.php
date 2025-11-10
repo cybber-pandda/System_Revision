@@ -171,6 +171,8 @@
             paging: false,
             autoWidth: false,
             responsive: false,
+            searching: false,    // disables search functionality
+            dom: 'lrtip',
             columns: [{
                     data: 'id',
                     name: 'id'

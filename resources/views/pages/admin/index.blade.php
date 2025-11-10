@@ -70,8 +70,7 @@
     $icon = $value >= 0 ? 'arrow-up' : 'arrow-down';
     $prefix = $value >= 0 ? '+' : '';
     return "<p class='mb-0 $class'>
-        <span>{$prefix}" . number_format($value, 1) . "%</span>
-        <i data-lucide='$icon' class='icon-sm mb-1'></i>
+        <!-- <i data-lucide='$icon' class='icon-sm mb-1'></i> -->
     </p>";
     }
     @endphp
@@ -79,8 +78,8 @@
     <div class="row">
         @foreach ([
         ['label' => 'Total Pending PR', 'value' => $totalPendingPR, 'change' => $totalPendingPRChange],
-        ['label' => 'Total PO Submitted PR', 'value' => $totalPOSubmittedPR, 'change' => $totalPOSubmittedPRChange],
-        ['label' => 'Total Sales Order PR', 'value' => $totalSalesOrderPR, 'change' => $totalSalesOrderPRChange],
+        ['label' => 'Total PO Submitted PR', 'value' => $totalSalesOrderPR, 'change' => $totalSalesOrderPRChange],
+        ['label' => 'Total Sales Order PR', 'value' => $totalPOSubmittedPR, 'change' => $totalPOSubmittedPRChange],
         ['label' => 'Total Delivered PR', 'value' => $totalDeliveredPR, 'change' => $totalDeliveredPRChange],
         ] as $stat)
         <div class="col-md-3 grid-margin stretch-card">
@@ -167,7 +166,7 @@
                                 <button type="button" class="btn btn-outline-primary">Today</button>
                                 <button type="button" class="btn btn-outline-primary d-none d-md-block">Week</button>
                                 <button type="button" class="btn btn-primary">Month</button>
-                                <button type="button" class="btn btn-outline-primary">Year</button>
+                                <!-- <button type="button" class="btn btn-outline-primary">Year</button> -->
                             </div>
                         </div>
                     </div>

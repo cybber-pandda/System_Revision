@@ -200,7 +200,7 @@ class HomeController extends Controller
             $totalPendingPR = PurchaseRequest::where('status', 'pending')->count();
             $totalPOSubmittedPR = PurchaseRequest::where('status', 'so_created')->count();
             $totalSalesOrderPR = PurchaseRequest::where('status', 'po_submitted')->count();
-            $totalDeliveredPR = PurchaseRequest::where('status', 'delivered')->count();
+            $totalDeliveredPR = PurchaseRequest::whereIn('status', ['delivered', 'invoice_sent'])->count();
 
             // Last month range
             $startLastMonth = Carbon::now()->subMonth()->startOfMonth();
@@ -361,102 +361,107 @@ class HomeController extends Controller
         // ============= 4. Chart Data with discount applied =============
         $grouped = collect();
 
-        switch ($filter) {
-            case 'day':
-                for ($i = 6; $i >= 0; $i--) {
-                    $key = now()->subDays($i)->format('Y-m-d');
-                    $grouped->put($key, ['label' => now()->subDays($i)->format('M d'), 'value' => 0]);
-                }
-
-                $prData = PurchaseRequest::whereIn('status', ['delivered', 'invoice_sent'])
-                    ->whereDate('created_at', '>=', now()->subDays(6))
-                    ->with('items.product')
-                    ->get()
-                    ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->format('Y-m-d'))
-                    ->map(fn($grp) => $grp->sum(fn($pr) => $pr->items->sum(fn($i) => $i->quantity * $calcPrice($i->product->price ?? 0, $i->product->discount ?? 0))));
-
-                $manualData = ManualEmailOrder::where('status', 'approve')
-                    ->whereDate('created_at', '>=', now()->subDays(6))
-                    ->get()
-                    ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->format('Y-m-d'))
-                    ->map(fn($grp) => $grp->sum($calcManual));
-
-                $rawData = $prData->mergeRecursive($manualData)->map(fn($v) => collect($v)->sum());
-                break;
-
-            case 'week':
-                for ($i = 7; $i >= 0; $i--) {
-                    $start = now()->subWeeks($i)->startOfWeek();
-                    $key = $start->format('W Y');
-                    $grouped->put($key, ['label' => "Week " . $start->format('W'), 'value' => 0]);
-                }
-
-                $prData = PurchaseRequest::whereIn('status', ['delivered', 'invoice_sent'])
-                    ->whereDate('created_at', '>=', now()->subWeeks(7)->startOfWeek())
-                    ->with('items.product')
-                    ->get()
-                    ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->startOfWeek()->format('W Y'))
-                    ->map(fn($grp) => $grp->sum(fn($pr) => $pr->items->sum(fn($i) => $i->quantity * $calcPrice($i->product->price ?? 0, $i->product->discount ?? 0))));
-
-                $manualData = ManualEmailOrder::where('status', 'approve')
-                    ->whereDate('created_at', '>=', now()->subWeeks(7)->startOfWeek())
-                    ->get()
-                    ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->startOfWeek()->format('W Y'))
-                    ->map(fn($grp) => $grp->sum($calcManual));
-
-                $rawData = $prData->mergeRecursive($manualData)->map(fn($v) => collect($v)->sum());
-                break;
-
-            case 'year':
-                for ($i = 4; $i >= 0; $i--) {
-                    $key = now()->subYears($i)->format('Y');
-                    $grouped->put($key, ['label' => $key, 'value' => 0]);
-                }
-
-                $prData = PurchaseRequest::whereIn('status', ['delivered', 'invoice_sent'])
-                    ->whereDate('created_at', '>=', now()->subYears(4)->startOfYear())
-                    ->with('items.product')
-                    ->get()
-                    ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->format('Y'))
-                    ->map(fn($grp) => $grp->sum(fn($pr) => $pr->items->sum(fn($i) => $i->quantity * $calcPrice($i->product->price ?? 0, $i->product->discount ?? 0))));
-
-                $manualData = ManualEmailOrder::where('status', 'approve')
-                    ->whereDate('created_at', '>=', now()->subYears(4)->startOfYear())
-                    ->get()
-                    ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->format('Y'))
-                    ->map(fn($grp) => $grp->sum($calcManual));
-
-                $rawData = $prData->mergeRecursive($manualData)->map(fn($v) => collect($v)->sum());
-                break;
-
-            default: // month
-                for ($i = 11; $i >= 0; $i--) {
-                    $key = now()->subMonths($i)->format('Y-m');
-                    $grouped->put($key, ['label' => now()->subMonths($i)->format('M Y'), 'value' => 0]);
-                }
-
-                $prData = PurchaseRequest::whereIn('status', ['delivered', 'invoice_sent'])
-                    ->whereDate('created_at', '>=', now()->subMonths(12)->startOfMonth())
-                    ->with('items.product')
-                    ->get()
-                    ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->format('Y-m'))
-                    ->map(fn($grp) => $grp->sum(fn($pr) => $pr->items->sum(fn($i) => $i->quantity * $calcPrice($i->product->price ?? 0, $i->product->discount ?? 0))));
-
-                $manualData = ManualEmailOrder::where('status', 'approve')
-                    ->whereDate('created_at', '>=', now()->subMonths(12)->startOfMonth())
-                    ->get()
-                    ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->format('Y-m'))
-                    ->map(fn($grp) => $grp->sum($calcManual));
-
-                $rawData = $prData->mergeRecursive($manualData)->map(fn($v) => collect($v)->sum());
-                break;
+switch ($filter) {
+    case 'day':
+        for ($i = 6; $i >= 0; $i--) {
+            $key = now()->subDays($i)->format('Y-m-d');
+            $grouped->put($key, ['label' => now()->subDays($i)->format('M d'), 'value' => 0]);
         }
 
-        // Merge chart values
-        $grouped = $grouped->map(function ($item, $key) use ($rawData) {
-            if ($rawData->has($key)) $item['value'] = $rawData[$key];
-            return $item;
-        });
+        $prData = PurchaseRequest::whereIn('status', ['delivered', 'invoice_sent'])
+            ->whereDate('created_at', '>=', now()->subDays(6))
+            ->with('items.product')
+            ->get()
+            ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->format('Y-m-d'))
+            ->map(fn($grp) => round($grp->sum(fn($pr) => $pr->items->sum(fn($i) => $i->quantity * $calcPrice($i->product->price ?? 0, $i->product->discount ?? 0))), 0));
+
+        $manualData = ManualEmailOrder::where('status', 'approve')
+            ->whereDate('created_at', '>=', now()->subDays(6))
+            ->get()
+            ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->format('Y-m-d'))
+            ->map(fn($grp) => round($grp->sum($calcManual), 0));
+
+        $rawData = $prData->mergeRecursive($manualData)->map(fn($v) => round(collect($v)->sum(), 0));
+        break;
+
+    case 'week':
+        for ($i = 7; $i >= 0; $i--) {
+            $start = now()->subWeeks($i)->startOfWeek();
+            $key = $start->format('W Y');
+            $grouped->put($key, ['label' => "Week " . $start->format('W'), 'value' => 0]);
+        }
+
+        $prData = PurchaseRequest::whereIn('status', ['delivered', 'invoice_sent'])
+            ->whereDate('created_at', '>=', now()->subWeeks(7)->startOfWeek())
+            ->with('items.product')
+            ->get()
+            ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->startOfWeek()->format('W Y'))
+            ->map(fn($grp) => round($grp->sum(fn($pr) => $pr->items->sum(fn($i) => $i->quantity * $calcPrice($i->product->price ?? 0, $i->product->discount ?? 0))), 0));
+
+        $manualData = ManualEmailOrder::where('status', 'approve')
+            ->whereDate('created_at', '>=', now()->subWeeks(7)->startOfWeek())
+            ->get()
+            ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->startOfWeek()->format('W Y'))
+            ->map(fn($grp) => round($grp->sum($calcManual), 0));
+
+        $rawData = $prData->mergeRecursive($manualData)->map(fn($v) => round(collect($v)->sum(), 0));
+        break;
+
+    case 'year':
+        for ($i = 4; $i >= 0; $i--) {
+            $key = now()->subYears($i)->format('Y');
+            $grouped->put($key, ['label' => $key, 'value' => 0]);
+        }
+
+        $prData = PurchaseRequest::whereIn('status', ['delivered', 'invoice_sent'])
+            ->where('created_at', '>=', now()->subYears(4)->startOfYear())
+            ->with('items.product')
+            ->get()
+            ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->format('Y'))
+            ->map(fn($grp) => round($grp->sum(fn($pr) =>
+                $pr->items->sum(fn($i) =>
+                    $i->quantity * $calcPrice($i->product->price ?? 0, $i->product->discount ?? 0)
+                )
+            ), 0));
+
+        $manualData = ManualEmailOrder::where('status', 'approve')
+            ->where('created_at', '>=', now()->subYears(4)->startOfYear())
+            ->get()
+            ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->format('Y'))
+            ->map(fn($grp) => round($grp->sum($calcManual), 0));
+
+        $rawData = $prData->mergeRecursive($manualData)->map(fn($v) => round(collect($v)->sum(), 0));
+        break;
+
+    default: // month
+        for ($i = 11; $i >= 0; $i--) {
+            $key = now()->subMonths($i)->format('Y-m');
+            $grouped->put($key, ['label' => now()->subMonths($i)->format('M Y'), 'value' => 0]);
+        }
+
+        $prData = PurchaseRequest::whereIn('status', ['delivered', 'invoice_sent'])
+            ->whereDate('created_at', '>=', now()->subMonths(12)->startOfMonth())
+            ->with('items.product')
+            ->get()
+            ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->format('Y-m'))
+            ->map(fn($grp) => round($grp->sum(fn($pr) => $pr->items->sum(fn($i) => $i->quantity * $calcPrice($i->product->price ?? 0, $i->product->discount ?? 0))), 0));
+
+        $manualData = ManualEmailOrder::where('status', 'approve')
+            ->whereDate('created_at', '>=', now()->subMonths(12)->startOfMonth())
+            ->get()
+            ->groupBy(fn($pr) => Carbon::parse($pr->created_at)->format('Y-m'))
+            ->map(fn($grp) => round($grp->sum($calcManual), 0));
+
+        $rawData = $prData->mergeRecursive($manualData)->map(fn($v) => round(collect($v)->sum(), 0));
+        break;
+}
+
+// Merge chart values
+$grouped = $grouped->map(function ($item, $key) use ($rawData) {
+    if ($rawData->has($key)) $item['value'] = round($rawData[$key], 0); // whole number
+    return $item;
+});
+
 
         return response()->json([
             'daily' => $dailyTotal,
@@ -472,16 +477,26 @@ class HomeController extends Controller
     {
         $reasons = ['restock', 'sold', 'returned', 'damaged', 'stock update', 'other'];
 
-        $inventory = Inventory::select('reason', 'type', 'quantity')
+        $inventory = \App\Models\Inventory::select('reason', 'type', 'quantity')
             ->get()
+            ->map(function ($item) {
+                // If it's an OUT type with no reason → mark as sold
+                if ($item->type === 'out' && (empty($item->reason) || is_null($item->reason))) {
+                    $item->reason = 'sold';
+                }
+
+                // Ensure all quantities are positive for the pie chart
+                $item->quantity = abs($item->quantity);
+
+                return $item;
+            })
             ->groupBy('reason')
-            ->map(function ($items, $reason) {
-                return $items->sum(function ($inv) {
-                    return $inv->type === 'in' ? $inv->quantity : -$inv->quantity;
-                });
+            ->map(function ($items) {
+                // Total quantities regardless of type
+                return $items->sum('quantity');
             });
 
-        // Ensure all reasons are present, even with zero values
+        // Ensure all reasons exist
         $data = collect($reasons)->mapWithKeys(function ($reason) use ($inventory) {
             return [$reason => $inventory[$reason] ?? 0];
         });
@@ -492,110 +507,175 @@ class HomeController extends Controller
         ]);
     }
 
-    public function monthlyTopPurchasedProducts()
-    {
-        $start = now()->subMonths(11)->startOfMonth();
-        $end = now()->endOfMonth();
+public function monthlyTopPurchasedProducts()
+{
+    $start = now()->subMonths(11)->startOfMonth();
+    $end = now()->endOfMonth();
 
-        $data = DB::table('purchase_request_items as pri')
-            ->join('purchase_requests as pr', 'pr.id', '=', 'pri.purchase_request_id')
-            ->join('products as p', 'p.id', '=', 'pri.product_id')
-            ->select(
-                DB::raw("DATE_FORMAT(pr.created_at, '%Y-%m') as month"),
-                'p.name',
-                DB::raw('SUM(pri.quantity) as total_quantity')
-            )
-            ->where('pr.status', 'delivered')
-            ->whereBetween('pr.created_at', [$start, $end])
-            ->groupBy('month', 'p.name')
-            ->orderBy('month')
-            ->get()
-            ->groupBy('month');
+    // 1) Get aggregated purchase_request items (delivered + invoice_sent)
+    $purchaseRows = DB::table('purchase_request_items as pri')
+        ->join('purchase_requests as pr', 'pr.id', '=', 'pri.purchase_request_id')
+        ->join('products as p', 'p.id', '=', 'pri.product_id')
+        ->whereIn('pr.status', ['delivered', 'invoice_sent'])
+        ->whereBetween('pr.created_at', [$start, $end])
+        ->select(
+            DB::raw("DATE_FORMAT(pr.created_at, '%Y-%m') as month"),
+            'p.name as product_name',
+            DB::raw('SUM(pri.quantity) as total_quantity')
+        )
+        ->groupBy('month', 'p.name')
+        ->orderBy('month')
+        ->get();
 
-        $months = collect();
-        for ($i = 11; $i >= 0; $i--) {
-            $label = now()->subMonths($i)->format('M Y');
-            $months[$label] = [];
-        }
+    // Use a nested array: $combined['YYYY-MM']['Product name'] = total qty
+    $combined = [];
 
-        foreach ($data as $month => $items) {
-            $label = Carbon::parse($month . '-01')->format('M Y');
-            $months[$label] = $items->sortByDesc('total_quantity')->take(5)->map(function ($item) {
-                return [
-                    'product' => $item->name,
-                    'quantity' => (int) $item->total_quantity
-                ];
-            })->values();
-        }
+    foreach ($purchaseRows as $r) {
+        $m = $r->month; // e.g. '2025-11'
+        $name = $r->product_name;
+        $qty = (float) $r->total_quantity;
 
-        return response()->json($months);
+        if (!isset($combined[$m])) $combined[$m] = [];
+        if (!isset($combined[$m][$name])) $combined[$m][$name] = 0;
+        $combined[$m][$name] += $qty;
     }
 
-    public function summary_sales()
-    {
-        $page = 'Summary List of Sales';
+    // 2) Pull approved manual_email_orders within the same date range
+    $manualOrders = \App\Models\ManualEmailOrder::where('status', 'approve')
+        ->whereBetween('created_at', [$start, $end])
+        ->get();
 
-        $purchaseRequests = PurchaseRequest::with(['items'])
-            ->whereIn('status', ['delivered', 'invoice_sent'])
-            ->get();
+    // Collect product_ids used by manual orders so we can fetch names in bulk
+    $productIdMap = []; // product_id => product_name
+    $manualSums = [];   // $manualSums['YYYY-MM'][product_id] = qty
 
+    foreach ($manualOrders as $order) {
+        $month = \Carbon\Carbon::parse($order->created_at)->format('Y-m');
+        $items = json_decode($order->purchase_request, true) ?? [];
+
+        foreach ($items as $it) {
+            $pid = $it['product_id'] ?? null;
+            $qty = isset($it['qty']) ? (float) $it['qty'] : 0;
+
+            if (!$pid) continue;
+
+            // accumulate qty per product_id per month
+            if (!isset($manualSums[$month])) $manualSums[$month] = [];
+            if (!isset($manualSums[$month][$pid])) $manualSums[$month][$pid] = 0;
+            $manualSums[$month][$pid] += $qty;
+
+            // mark id to fetch name later
+            $productIdMap[$pid] = true;
+        }
+    }
+
+    // Fetch product names for all product_ids seen in manual orders
+    $productIds = array_keys($productIdMap);
+    if (!empty($productIds)) {
+        $names = DB::table('products')->whereIn('id', $productIds)->pluck('name', 'id')->toArray();
+    } else {
+        $names = [];
+    }
+
+    // Merge manual sums into $combined using product names
+    foreach ($manualSums as $month => $prodMap) {
+        foreach ($prodMap as $pid => $qty) {
+            $pname = $names[$pid] ?? ("Product #{$pid}");
+            if (!isset($combined[$month])) $combined[$month] = [];
+            if (!isset($combined[$month][$pname])) $combined[$month][$pname] = 0;
+            $combined[$month][$pname] += $qty;
+        }
+    }
+
+    // 3) Prepare 12-month labels and output top 5 per month
+    $monthsOutput = collect();
+    for ($i = 11; $i >= 0; $i--) {
+        $label = now()->subMonths($i)->format('M Y'); // e.g. "Nov 2025"
+        $monthsOutput[$label] = [];
+    }
+
+    // For each month in the combined data, sort and take top 5
+    foreach ($combined as $monthKey => $products) {
+        // monthKey format: 'YYYY-MM'
+        $label = \Carbon\Carbon::createFromFormat('Y-m', $monthKey)->format('M Y');
+
+        // convert to list of ['product'=>..., 'quantity'=>...]
+        $list = [];
+        foreach ($products as $pname => $qty) {
+            $list[] = ['product' => $pname, 'quantity' => (int) round($qty)];
+        }
+
+        // sort desc by quantity
+        usort($list, function ($a, $b) {
+            return $b['quantity'] <=> $a['quantity'];
+        });
+
+        $monthsOutput[$label] = array_values(array_slice($list, 0, 5));
+    }
+
+    // ensure JSON-friendly structure (convert collection to plain array)
+    return response()->json($monthsOutput->toArray());
+}
+
+public function summary_sales()
+{
+    $page = 'Summary List of Sales';
+
+    $purchaseRequests = PurchaseRequest::with(['items'])
+        ->whereIn('status', ['delivered', 'invoice_sent'])
+        ->get();
+
+    // Subtotal
     $subtotal = $purchaseRequests->sum(function ($pr) {
         return $pr->items->sum(function ($item) {
-            // ✅ prioritize unit_price, then price, then product->price
-            $price = $item->unit_price ?? $item->price ?? $item->product->price ?? 0;
-            $discount = $item->discount ?? $item->product->discount ?? 0;
-
+            $price = $item->unit_price ?? $item->price ?? 0; // only stored price
+            $discount = $item->discount ?? 0;               // only stored discount
             $discountedPrice = $price - ($price * ($discount / 100));
             return $item->quantity * $discountedPrice;
         });
     });
 
-
-
+    // VAT Amount
     $vatAmount = $purchaseRequests->sum(function ($pr) {
-        $vatRate = $pr->vat ?? 12; // ✅ default 12% if missing
-
+        $vatRate = $pr->vat ?? 12;
         $prSubtotal = $pr->items->sum(function ($item) {
             $price = $item->unit_price ?? $item->price ?? 0;
             $discount = $item->discount ?? 0;
-
             $discountedPrice = $price - ($price * ($discount / 100));
             return $item->quantity * $discountedPrice;
         });
-
         return $prSubtotal * ($vatRate / 100);
     });
 
+    // Delivery fee (gross, includes VAT)
+    $deliveryFee = $purchaseRequests->sum(fn($pr) => $pr->delivery_fee ?? 0);
 
-        // Delivery fee (gross, includes VAT)
-        $deliveryFee = $purchaseRequests->sum(fn($pr) => $pr->delivery_fee ?? 0);
+    // Compute VAT portion of delivery fee
+    $deliveryVAT = $deliveryFee * (0.12 / 1.12);
+    $deliveryExclusive = $deliveryFee - $deliveryVAT;
 
-        // Compute VAT portion of delivery fee
-        $deliveryVAT = $deliveryFee * (0.12 / 1.12);
-        $deliveryExclusive = $deliveryFee - $deliveryVAT;
+    // Total VAT (sales VAT + delivery VAT)
+    $totalVAT = $vatAmount + $deliveryVAT;
 
-        // Total VAT (sales VAT + delivery VAT)
-        $totalVAT = $vatAmount + $deliveryVAT;
+    // Totals
+    $vatExclusive = $subtotal;
+    $total = $subtotal + $vatAmount;
+    $grandTotal = $total + $deliveryFee;
 
-        // Totals
-        $vatExclusive = $subtotal;
-        $total = $subtotal + $vatAmount;
-        $grandTotal = $total + $deliveryFee;
-
-        return view('pages.summary_sales', compact(
-            'page',
-            'purchaseRequests',
-            'subtotal',
-            'vatAmount',
-            'deliveryVAT',
-            'totalVAT',
-            'vatExclusive',
-            'deliveryExclusive',
-            'deliveryFee',
-            'total',
-            'grandTotal'
-        ));
-    }
+    return view('pages.summary_sales', compact(
+        'page',
+        'purchaseRequests',
+        'subtotal',
+        'vatAmount',
+        'deliveryVAT',
+        'totalVAT',
+        'vatExclusive',
+        'deliveryExclusive',
+        'deliveryFee',
+        'total',
+        'grandTotal'
+    ));
+}
 
     public function summary_sales_api($date_from, $date_to)
     {

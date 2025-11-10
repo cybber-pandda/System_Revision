@@ -180,7 +180,7 @@
                     $('#libremap').html('');
                     map = new maplibregl.Map({
                         container: 'libremap',
-                        style: 'https://tiles.stadiamaps.com/styles/alidade_smooth.json?api_key=e3a93d7d-52a6-4464-815e-910cfeac8a7d',
+                        style: 'https://tiles.stadiamaps.com/styles/alidade_smooth.json?api_key=275d2e97-15e5-4976-8f40-af02cdeb4b82',
                         center: [lon, lat],
                         zoom: 16,
                         attributionControl: true

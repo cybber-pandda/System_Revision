@@ -8,8 +8,7 @@ use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon; //ito
-
-
+use App\Models\Notification;
 use App\Models\CreditPayment;
 use App\Models\CreditPartialPayment;
 use App\Models\Bank;
@@ -273,7 +272,10 @@ class CreditController extends Controller
             $file->move(public_path('assets/upload/proofpayment'), $filename);
             $path = 'assets/upload/proofpayment/' . $filename;
         }
-
+        
+        // Keep "overdue" status unchanged when submitting payment
+        $newStatus = $creditPayment->status === 'overdue' ? 'overdue' : 'pending';
+        
         // Update payment
         $creditPayment->update([
             'bank_id' => $request->bank_id,
@@ -281,8 +283,24 @@ class CreditController extends Controller
             'paid_date' => now(),
             'proof_payment' => $path,
             'reference_number' => $request->reference_number,
-            'status' => $creditPayment->status === 'reject' ? 'pending' : 'pending'
+            //'status' => $creditPayment->status === 'reject' ? 'pending' : 'pending'
+            'status' => $newStatus
         ]);
+
+        // ✅ Notify Sales Officer that a B2B user submitted a payment
+        $salesOfficer = User::where('role', 'salesofficer')->first();
+        if ($salesOfficer) {
+            Notification::create([
+                'user_id' => $salesOfficer->id,
+                'type' => 'payment_submission',
+                'message' => e($user->name) . ' has submitted a '
+                    . ucfirst($request->credit_payment_type)
+                    . ' payment for Purchase Request #' . e($creditPayment->purchase_request_id)
+                    . '. Please review the payment details. <br><a href="' 
+                    . route('salesofficer.paylater.index') 
+                    . '">Visit</a>',
+            ]);
+        }
 
         return response()->json([
             'message' => 'Payment submitted successfully',

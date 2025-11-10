@@ -41,7 +41,7 @@
             'label' => 'Delivery Fee',
             'type' => 'number',
             'name' => 'delivery_fee',
-            'attributes' => 'placeholder=\'Enter delivery fee\''
+            'attributes' => 'placeholder="Enter delivery fee" id="delivery_fee" maxlength="5"'
         ]) @endcomponent    
     </form>
     @slot('footer')
@@ -84,4 +84,34 @@
 
 @push('scripts')
 <script src="{{ route('secure.js', ['filename' => 'salesofficer_pr']) }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const feeInput = document.getElementById('delivery_fee');
+
+    feeInput.addEventListener('keydown', function (e) {
+        // Allow navigation keys, backspace, delete, tab, enter, escape
+        if ([8,9,13,27,46,37,38,39,40].indexOf(e.keyCode) !== -1) return;
+
+        // Allow: Ctrl/Command + A, C, V, X, Z
+        if ((e.ctrlKey || e.metaKey) && ['a','c','v','x','z'].includes(e.key.toLowerCase())) return;
+
+        // Block non-numeric keys
+        if ((e.keyCode < 48 || e.keyCode > 57) && (e.keyCode < 96 || e.keyCode > 105)) {
+            e.preventDefault();
+        }
+
+        // Prevent typing more than 5 digits
+        if (this.value.length >= 5 && ![8,46].includes(e.keyCode)) {
+            e.preventDefault();
+        }
+    });
+
+    // Optional: clean pasted input
+    feeInput.addEventListener('input', function () {
+        this.value = this.value.replace(/\D/g, '').slice(0,5);
+    });
+});
+</script>
+
+
 @endpush

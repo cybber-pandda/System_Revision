@@ -48,6 +48,11 @@ class InventoryManagementController extends Controller
                     $stockOut = $product->inventories->where('type', 'out')->sum('quantity');
                     $currentStock = $stockIn - $stockOut;
 
+                     $reservedStock = DB::table('pr_reserve_stocks')
+                    ->where('product_id', $product->id)
+                    ->whereIn('status', ['pending', 'approved'])
+                    ->sum('qty');
+
                     // Group and format breakdown
                     $breakdown = $product->inventories
                         ->groupBy(['type', 'reason'])
@@ -74,6 +79,7 @@ class InventoryManagementController extends Controller
                         'stockIn' => $stockIn,
                         'stockOut' => $stockOut,
                         'current_stock' => $currentStock,
+                        'reserved_stock' => $reservedStock,
                         'inventory_breakdown' => $breakdownHtml,
                         'action' => '<a href="' . route('inventory.fifo', $product->id) . '" 
                                         class="btn btn-sm btn-outline-light">
@@ -120,21 +126,59 @@ class InventoryManagementController extends Controller
 
         if ($request->ajax()) {
             $fifoData = $product->stockBatches->map(function ($batch, $index) {
-                // Determine status based on remaining quantity
+            // ✅ Determine status with correct priority
+            
+            if ($batch->expiry_date && Carbon::parse($batch->expiry_date)->isPast()) {
+                $status = '⚫ Expired';
+            } elseif ($batch->remaining_quantity <= 0) {
+                $status = '🔴 Depleted';
+            } elseif ($batch->remaining_quantity < $batch->quantity) {
+                $status = '🟡 Partially Sold';
+            } else {
                 $status = '🟢 Available';
+            }
+
+            return [
+                'batch_no' => $index + 1,
+                'quantity' => $batch->quantity,
+                'remaining' => $batch->remaining_quantity,
+                'received_date' => $batch->received_date
+                    ? Carbon::parse($batch->received_date)->format('Y-m-d')
+                    : '-',
+                'expiry_date' => $batch->expiry_date
+                    ? Carbon::parse($batch->expiry_date)->format('Y-m-d')
+                    : '-',
+                'note' => $batch->note ?? '-',
+                'status' => $status,
+            ];
+        });
+            return datatables()->of($fifoData)->make(true);
+        } 
+
+        /* use this if want near expiry date
+        if ($request->ajax()) {
+            $fifoData = $product->stockBatches->map(function ($batch, $index) {
+                $status = '🟢 Available';
+
                 if ($batch->remaining_quantity <= 0) {
                     $status = '🔴 Depleted';
                 } elseif ($batch->remaining_quantity < $batch->quantity) {
                     $status = '🟡 Partially Sold';
-                } elseif ($batch->expiry_date && Carbon::parse($batch->expiry_date)->isPast()) {
-                    $status = '⚫ Expired';
+                }
+
+                if ($batch->expiry_date) {
+                    $expiry = Carbon::parse($batch->expiry_date);
+                    if ($expiry->isPast()) {
+                        $status = '⚫ Expired';
+                    } elseif ($expiry->diffInDays(Carbon::now()) <= 7) {
+                        $status = '🟠 Near Expiry';
+                    }
                 }
 
                 return [
                     'batch_no' => $index + 1,
                     'quantity' => $batch->quantity,
                     'remaining' => $batch->remaining_quantity,
-                    // 'cost' => number_format($batch->cost_price, 2),
                     'received_date' => $batch->received_date
                         ? Carbon::parse($batch->received_date)->format('Y-m-d')
                         : '-',
@@ -147,7 +191,7 @@ class InventoryManagementController extends Controller
             });
 
             return datatables()->of($fifoData)->make(true);
-        }
+        } */
 
         return view('pages.superadmin.v_fifoBreakdown', [
             'page' => 'FIFO Breakdown',

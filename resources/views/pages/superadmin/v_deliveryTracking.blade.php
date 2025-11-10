@@ -47,6 +47,7 @@
                         <th>Total Items</th>
                         <th>Grand Total</th>
                         <th>Customer Address</th>
+                        <th>Delivery Schedule</th> <!-- new column -->
                         <th></th>
                     </tr>
                     '

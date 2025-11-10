@@ -59,16 +59,16 @@
             @csrf
             <div class="modal-content">
                 <div class="modal-header">
-                    <h4 class="modal-title">Return Product</h4>
+                    <h4 class="modal-title">Return or Replace Product</h4>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" name="item_id" id="returnItemId">
                     <div class="form-group">
-                        <label>Reason for return</label>
+                        <label>Reason for return/ replace</label>
                         <textarea class="form-control" name="reason" required></textarea>
                     </div>
                     <div class="form-group">
-                        <label>Upload Photo (optional)</label>
+                        <label>Upload Proof</label>
                         <input type="file" name="photo" class="form-control" accept=".jpg, .jpeg, .png">
                     </div>
                 </div>

@@ -17,6 +17,7 @@
         </form>
 
         <ul class="navbar-nav">
+            <!--
             <li class="theme-switcher-wrapper nav-item">
                 <input type="checkbox" value="" id="theme-switcher">
                 <label for="theme-switcher">
@@ -28,7 +29,7 @@
                         </div>
                     </div>
                 </label>
-            </li>
+            </li> -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" id="messageDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                     <i data-lucide="mail"></i>

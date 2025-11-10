@@ -43,6 +43,14 @@ $(document).ready(function () {
                 width: "10%",
             },
             {
+                data: "delivery_schedule", // new column
+                name: "delivery_schedule",
+                className: "dt-left-int",
+                width: "15%",
+                orderable: true, // you can sort by schedule
+                searchable: true,
+            },
+            {
                 data: "created_at",
                 name: "created_at",
                 className: "dt-left-int",

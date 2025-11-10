@@ -58,6 +58,7 @@ $(document).ready(function () {
                     `;
                 },
             },
+            { data: 'delivery_datetime', name: 'delivery_datetime' }, // new column
             {
                 data: "action",
                 name: "action",

@@ -195,38 +195,49 @@ class ReportController extends Controller
 
         if ($user->role === 'superadmin') {
 
-            if ($request->ajax()) {
-                $today = now()->toDateString();
+if ($request->ajax()) {
+    try {
+        $today = now()->toDateString();
 
-                // ✅ Get all expired stock batches with their products and inventory
-                $expiredProducts = StockBatch::with('product', 'inventory')
-                    ->whereNotNull('expiry_date')
-                    ->where('expiry_date', '<', $today)
-                    ->get();
+        // Load product and inventory safely
+        $expiredProducts = StockBatch::with(['product', 'inventory'])
+            ->whereNotNull('expiry_date')
+            ->where('expiry_date', '<', $today)
+            ->get();
 
-                // ✅ Transform each record for DataTables
-                $data = $expiredProducts->map(function ($batch) {
-                    $product = $batch->product;
-                    $inventory = $batch->inventory;
+        $data = $expiredProducts->map(function ($batch) {
+            $product = $batch->product;
+            $inventory = $batch->inventory;
 
-                    // If quantities are stored in inventory, safely handle nulls
-                    $stockIn = $inventory?->type === 'in' ? ($inventory->quantity ?? 0) : 0;
-                    $stockOut = $inventory?->type === 'out' ? ($inventory->quantity ?? 0) : 0;
-                    $currentStock = max($stockIn - $stockOut, 0);
+            $batchQty = $batch->quantity ?? 0;
+            $stockIn = ($inventory && $inventory->type === 'in')
+                ? ($inventory->quantity ?? 0)
+                : 0;
 
-                    return [
-                        'sku'           => $product?->sku ?? 'N/A',
-                        'name'          => $product?->name ?? 'N/A',
-                        'expiry_date'   => $batch->expiry_date,
-                        'price'         => number_format($product?->price ?? 0, 2),
-                        'stockIn'       => $stockIn,
-                        'stockOut'      => $stockOut,
-                        'current_stock' => $currentStock,
-                    ];
-                });
+            // ✅ Calculate total expired safely
+            $totalExpired = max($batchQty - $stockIn, 0);
 
-                return datatables()->of($data)->make(true);
-            }
+            return [
+                'sku'           => $product?->sku ?? 'N/A',
+                'name'          => $product?->name ?? 'N/A',
+                'price'         => number_format($product?->price ?? 0, 2),
+                'expiry_date'   => $batch->expiry_date,
+                'total_expired' => $totalExpired,
+            ];
+        });
+
+        return datatables()->of($data)->make(true);
+
+    } catch (\Throwable $e) {
+        // Debug info for you (shows in browser console)
+        return response()->json([
+            'error' => $e->getMessage(),
+            'line'  => $e->getLine(),
+            'file'  => $e->getFile(),
+        ], 500);
+    }
+}
+
 
             return view('pages.superadmin.v_expiredProductReport', [
                 'page' => 'Expired Product Report',

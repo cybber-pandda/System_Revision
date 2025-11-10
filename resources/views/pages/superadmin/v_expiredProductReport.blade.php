@@ -18,11 +18,9 @@
                 <tr>
                     <th>SKU</th>
                     <th>Product Name</th>
-                    <th>Expiry Date</th>
                     <th>Price</th>
-                    <th>Stock In</th>
-                    <th>Stock Out</th>
-                    <th>Current Stock</th>
+                    <th>Expiry Date</th>
+                    <th>Total Expired</th>
                 </tr>
                 '
             ])

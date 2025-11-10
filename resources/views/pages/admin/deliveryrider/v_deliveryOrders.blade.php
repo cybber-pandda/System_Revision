@@ -40,6 +40,7 @@
                         <th>Customer Name</th>
                         <th>Total Items</th>
                         <th>Grand Total</th>
+                        <th>Delivery Schedule</th> <!-- new column -->
                         <th>Date Created</th>
                         <th>Action</th>
                     </tr>

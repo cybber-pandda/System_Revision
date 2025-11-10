@@ -108,8 +108,9 @@ public function index(Request $request)
             Notification::create([
                 'user_id' => $pr->customer->id,
                 'type' => 'quotation_rejected',
-                'message' => 'Your purchase request #' . $pr->id . ' has expired and was automatically rejected. 
-                    <br><a href="' . route('b2b.purchase-requests.index') . '">Visit Link</a>',
+                'message' => 'We’re sorry to inform you that your purchase request #' . $pr->id . 
+                            ' has expired and was automatically rejected. Please feel free to create a new request if you still wish to proceed. 
+                            <br><a href="' . route('b2b.quotations.review') . '">Visit Link</a>',
             ]);
         }
     }
@@ -133,8 +134,9 @@ public function index(Request $request)
             Notification::create([
                 'user_id' => $quotation->customer->id,
                 'type' => 'quotation_expired',
-                'message' => 'Your quotation for PR #' . $quotation->id . ' has expired after 2 days and was automatically cancelled. 
-                    <br><a href="' . route('b2b.purchase-requests.index') . '">Visit Link</a>',
+                'message' => 'We’re sorry to inform you that your quotation for Purchase Request #' . $quotation->id . 
+                            ' has expired after 2 days and was automatically cancelled. Please feel free to request a new quotation if you’d like to proceed. 
+                            <br><a href="' . route('b2b.quotations.review') . '">Visit Link</a>',
             ]);
         }
 
@@ -296,7 +298,7 @@ public function index(Request $request)
             Notification::create([
                 'user_id' => $purchaseRequest->customer->id,
                 'type' => 'quotation_sent',
-                'message' => 'A quotation has been sent for your purchase request #' . $purchaseRequest->id . '. <br><a href="' . route('b2b.purchase-requests.index') . '">Visit Link</a>',
+                'message' => 'A quotation has been sent for your purchase request #' . $purchaseRequest->id . '. <br><a href="' . route('b2b.quotations.review') . '">Visit Link</a>',
             ]);
         }
 

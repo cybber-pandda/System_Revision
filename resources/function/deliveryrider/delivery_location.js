@@ -69,7 +69,14 @@ $(document).ready(function () {
                     `;
                 },
             },
-
+            { 
+                data: "delivery_schedule", // new column
+                name: "delivery_schedule",
+                className: "dt-left-int",
+                width: "15%",
+                orderable: true,
+                searchable: true
+            },
             {
                 data: "action",
                 name: "action",

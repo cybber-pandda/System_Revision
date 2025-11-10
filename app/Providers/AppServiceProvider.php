@@ -210,17 +210,35 @@ class AppServiceProvider extends ServiceProvider
 
             $expiredBatches = StockBatch::whereNotNull('expiry_date')
                 ->where('expiry_date', '<', $today)
-                ->get(['id', 'inventory_id']);
+                ->get();
 
-            if ($expiredBatches->isNotEmpty()) {
-                DB::table('stock_batches')
-                    ->whereIn('id', $expiredBatches->pluck('id'))
-                    ->update(['quantity' => 0]);
+            foreach ($expiredBatches as $batch) {
+                if ($batch->remaining_quantity > 0) {
+                    $expiredQty = $batch->remaining_quantity;
 
-                DB::table('inventories')
-                    ->whereIn('id', $expiredBatches->pluck('inventory_id')->filter())
-                    ->update(['quantity' => 0]);
+                    // Set remaining_quantity to 0 (don’t touch total quantity)
+                    $batch->update(['remaining_quantity' => 0]);
+
+                    // Log expiration in stock movements
+                    \App\Models\StockMovement::create([
+                        'product_id' => $batch->product_id,
+                        'batch_id'   => $batch->id,
+                        'quantity'   => $expiredQty,
+                        'type'       => 'out',
+                        'reason'     => 'Expired stock automatically marked as depleted',
+                    ]);
+
+                    // Update inventory table (reduce only remaining_quantity)
+                    if ($batch->inventory_id) {
+                        $inventory = \App\Models\Inventory::find($batch->inventory_id);
+                        if ($inventory && $inventory->quantity > 0) {
+                            $newQty = max(0, $inventory->quantity - $expiredQty);
+                            $inventory->update(['quantity' => $newQty]);
+                        }
+                    }
+                }
             }
+
 
 
             if ($user && $user->role === 'b2b') {

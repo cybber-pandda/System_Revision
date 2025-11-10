@@ -119,8 +119,13 @@ $(document).ready(function () {
                         Swal.fire("Approved!", response.message, "success");
                         $("#manualEmailOrderTable").DataTable().ajax.reload();
                     }
-                ).fail(function () {
-                    Swal.fire("Error", "Something went wrong.", "error");
+                ).fail(function (xhr) {
+                    let res = xhr.responseJSON;
+                    if (res && res.message) {
+                        Swal.fire("Warning", res.message, "warning");
+                    } else {
+                        Swal.fire("Error", "Something went wrong.", "error");
+                    }
                 });
             }
         });
@@ -157,8 +162,13 @@ $(document).ready(function () {
                         Swal.fire("Rejected!", response.message, "success");
                         $("#manualEmailOrderTable").DataTable().ajax.reload();
                     }
-                ).fail(function () {
-                    Swal.fire("Error", "Something went wrong.", "error");
+                ).fail(function (xhr) {
+                    let res = xhr.responseJSON;
+                    if (res && res.message) {
+                        Swal.fire("Warning", res.message, "warning");
+                    } else {
+                        Swal.fire("Error", "Something went wrong.", "error");
+                    }
                 });
             }
         });

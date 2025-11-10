@@ -94,7 +94,7 @@
             <li class="nav-item {{ Route::is('expired.product.report') ? 'active' : '' }}">
                 <a href="{{ route('expired.product.report') }}" class="nav-link">
                     <i class="link-icon" data-lucide="chart-column-stacked"></i>
-                    <span class="link-title">Expired Prodcuts Report</span>
+                    <span class="link-title">Expired Products Report</span>
                 </a>
             </li>
 

@@ -180,12 +180,10 @@ $(document).ready(function () {
             `;
 
                 if (response.length > 0) {
-                    response.forEach((item, index) => {
+                    response.forEach((item) => {
                         tableHtml += `
                         <tr>
-                            <td data-label="Amount to Pay:">₱${parseFloat(
-                                item.amount_to_pay
-                            ).toLocaleString(undefined, {
+                            <td data-label="Amount to Pay:">₱${parseFloat(item.amount_to_pay).toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
                             })}</td>
                             <td data-label="Due Date:">${item.due_date_formatted ?? "--"}</td>
@@ -193,42 +191,43 @@ $(document).ready(function () {
                                 <span class="badge ${
                                     item.status === "pending"
                                         ? "bg-warning text-dark"
-                                        : "bg-success"
+                                        : item.status === "paid"
+                                        ? "bg-success"
+                                        : item.status === "reject"
+                                        ? "bg-danger"
+                                        : "bg-secondary"
                                 }">
-                                    ${
-                                        item.status.charAt(0).toUpperCase() +
-                                        item.status.slice(1)
-                                    }
+                                    ${item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                                 </span>
                             </td>
                             <td data-label="Date Paid:">${item.date_paid ?? "--"}</td>
                             <td data-label="Paid Amount:">${item.paid_amount ?? "--"}</td>
-                            <td data-label="Proof:">
-                                ${
-                                    item.proof_payment
-                                        ? `<a href="${item.proof_payment}" target="_blank">
-                                            <img src="${item.proof_payment}" alt="Proof" style="max-height:40px;cursor:pointer;" />
-                                        </a>`
-                                        : "--"
-                                }
-                            </td>
+                            <td data-label="Proof:">${
+                                item.proof_payment
+                                    ? `<a href="${item.proof_payment}" target="_blank">
+                                        <img src="${item.proof_payment}" alt="Proof" style="max-height:40px;cursor:pointer;" />
+                                    </a>`
+                                    : "--"
+                            }</td>
                             <td data-label="Reference:">${item.reference_number ?? "--"}</td>
                             <td>
                                 ${
-                                    item.proof_payment && item.reference_number &&  item.status === 'pending'
-                                        ? `<button class="btn btn-sm btn-inverse-dark approve-partial-payment p-1" data-id="${item.id}" style="font-size:11px;">Approve
-                                        </button>
-                                        <button class="btn btn-sm btn-inverse-dark reject-payment p-1" data-id="${item.id}" data-paymenttype="partial" style="font-size:11px;">Reject
-                                        </button>`
-                                        : ( item.status === 'paid' ? '' : `<span class="badge bg-danger">Awaiting Payment</span>`)
-                                        
+                                    // ✅ Updated condition
+                                    item.proof_payment && item.reference_number && item.status !== 'paid'
+                                        ? `
+                                            <button class="btn btn-sm btn-inverse-dark approve-partial-payment p-1" data-id="${item.id}" style="font-size:11px;">Approve</button>
+                                            <button class="btn btn-sm btn-inverse-danger reject-payment p-1" data-id="${item.id}" data-paymenttype="partial" style="font-size:11px;">Reject</button>
+                                        `
+                                        : (item.status === 'paid'
+                                            ? ''
+                                            : `<span class="badge bg-danger">Awaiting Payment</span>`)
                                 }
                             </td>
                         </tr>
-                    `;
+                        `;
                     });
                 } else {
-                    tableHtml += `<tr><td colspan="4" class="text-center">No records found</td></tr>`;
+                    tableHtml += `<tr><td colspan="8" class="text-center">No records found</td></tr>`;
                 }
 
                 tableHtml += `</tbody></table>`;

@@ -437,6 +437,29 @@ class PurchaseRequestController extends Controller
                 'message' => 'No valid purchase requests found to submit.'
             ], 404);
         }
+        
+        $totalAmount = 0;
+        $totalQuantity = 0;
+
+        foreach ($purchaseRequests as $pr) {
+            foreach ($pr->items as $item) {
+                $price = $item->unit_price ?? ($item->product->discount > 0 && $item->product->discounted_price
+                    ? $item->product->discounted_price
+                    : $item->product->price);
+
+                $totalAmount += $price * $item->quantity;
+                $totalQuantity += $item->quantity;
+            }
+        }
+
+        // ✅ Allow if totalAmount >= 10000 OR totalQuantity >= 200
+        //if ($totalAmount < 10000) {
+        if ($totalAmount < 10000 && $totalQuantity < 200) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Minimum of ₱10,000 total order or 200 units required to proceed.'
+            ], 400);
+        }
 
         DB::beginTransaction(); // ✅ Begin transaction
 

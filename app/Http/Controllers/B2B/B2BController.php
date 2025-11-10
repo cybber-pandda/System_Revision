@@ -223,6 +223,15 @@ class B2BController extends Controller
         $purchaseRequests = PurchaseRequest::withCount('items')
             ->withSum('items', 'subtotal') // sum of all item subtotals
             ->where('customer_id', $userId)
+            ->whereIn('status', [
+                'po_submitted',
+                'so_created',
+                'delivery_in_progress',
+                'delivered',
+                'invoice_sent',
+                'returned',
+                'refunded'
+            ]) // ✅ include all statuses after po_submitted
             ->latest()
             ->get();
 

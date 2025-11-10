@@ -1,5 +1,4 @@
 @if(!empty($deliveries) && $deliveries->count() > 0)
-<!-- <div class="table-responsive"> -->
     <table class="table-2">
         <thead>
             <tr>
@@ -9,6 +8,7 @@
                 <th>Status</th>
                 <th>Total Items</th>
                 <th>Total Amount</th>
+                <th>Delivery Schedule</th> <!-- new column -->
                 <th>Items</th>
                 <th>Action</th>
             </tr>
@@ -21,7 +21,6 @@
             $addressNotes = $delivery->b2bAddress->address_notes ?? '';
             $shortAddress = strlen($fullAddress) > 20 ? substr($fullAddress, 0, 20) . '...' : $fullAddress;
 
-            // ✅ Correct: get subtotal from PurchaseRequest items, not current product prices
             $subtotal = 0;
             $vatRate = 0;
             $deliveryFee = 0;
@@ -31,7 +30,6 @@
                 $purchaseRequest = \App\Models\PurchaseRequest::find($purchaseRequestId);
 
                 if ($purchaseRequest) {
-                    // Sum the stored subtotal from purchase_request_items
                     $subtotal = \DB::table('purchase_request_items')
                         ->where('purchase_request_id', $purchaseRequestId)
                         ->sum('subtotal');
@@ -43,6 +41,11 @@
 
             $vat = $subtotal * ($vatRate / 100);
             $grandTotal = $subtotal + $vat + $deliveryFee;
+
+            // Format delivery datetime
+            $deliverySchedule = $delivery->delivery->delivery_datetime 
+                ? \Carbon\Carbon::parse($delivery->delivery->delivery_datetime)->format('Y-m-d H:i') 
+                : 'Not Scheduled';
             @endphp
 
             <tr>
@@ -60,6 +63,7 @@
                 </td>
                 <td data-label="Total Items:">{{ $delivery->items->sum('quantity') }}</td>
                 <td data-label="Total Amount:">₱{{ number_format($grandTotal, 2) }}</td>
+                <td data-label="Delivery Schedule:">{{ $deliverySchedule }}</td> <!-- new column -->
                 <td data-label="Items:">
                     <ul class="mb-0 delivery-list">
                         @foreach($delivery->items as $item)
@@ -80,7 +84,6 @@
 
         </tbody>
     </table>
-<!-- </div> -->
 @else
 <div class="text-center mb-3">No deliveries assigned to you.</div>
 @endif

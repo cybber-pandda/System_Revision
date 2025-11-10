@@ -191,6 +191,9 @@
         $(document).on('input', '.item-qty', function() {
             let value = $(this).val();
 
+            // Allow empty temporarily (so user can backspace everything)
+            if (value === '') return;
+
             // Remove non-digit characters
             value = value.replace(/\D/g, '');
 
@@ -199,12 +202,16 @@
                 value = value.slice(0, 5);
             }
 
-            // Ensure minimum of 1
-            if (value === '' || parseInt(value) < 1) {
-                value = 1;
-            }
-
             $(this).val(value);
+        });
+
+        // When user leaves the field (change/blur), validate the number
+        $(document).on('change blur', '.item-qty', function() {
+            let value = $(this).val();
+
+            if (value === '' || parseInt(value) < 1) {
+                $(this).val(1);
+            }
         });
 
         // Remove Item

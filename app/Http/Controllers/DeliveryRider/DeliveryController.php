@@ -106,6 +106,11 @@ class DeliveryController extends Controller
                     ->addColumn('customer_name', fn($pr) => optional($pr->user)->name ?? 'N/A')
                     ->addColumn('total_items', fn($pr) => $pr->items->sum('quantity'))
                     ->addColumn('grand_total', fn($order) => $this->calculateGrandTotal($order))
+                    ->addColumn('delivery_schedule', function($order) {
+                        return $order->delivery->delivery_datetime
+                            ? \Carbon\Carbon::parse($order->delivery->delivery_datetime)->format('Y-m-d H:i')
+                            : 'Not Scheduled';
+                    })
                     ->editColumn('created_at', fn($pr) => $pr->created_at->format('Y-m-d H:i:s'))
                     ->addColumn('action', function ($pr) {
                         $btn = '<button class="btn btn-sm btn-inverse-info view-items-btn" data-id="' . $pr->id . '"><i class="link-icon" data-lucide="list"></i>Items</button> ';
@@ -253,7 +258,11 @@ class DeliveryController extends Controller
                     ->addColumn('customer_name', fn($pr) => optional($pr->user)->name ?? 'N/A')
                     ->addColumn('total_items', fn($pr) => $pr->items->sum('quantity'))
                     ->addColumn('grand_total', fn($order) => $this->calculateGrandTotal($order))
-
+                    ->addColumn('delivery_schedule', function($order) {
+                        return $order->delivery->delivery_datetime
+                            ? \Carbon\Carbon::parse($order->delivery->delivery_datetime)->format('Y-m-d H:i')
+                            : 'Not Scheduled';
+                    })
                     ->addColumn('tracking_number', fn($pr) => $pr->delivery->tracking_number ?? 'N/A')
                     ->addColumn('action', function ($pr) {
                         return '<button class="btn btn-sm btn-inverse-primary view-details-btn" data-id="' . $pr->delivery->id . '"><i class="link-icon" data-lucide="clock"></i> View History</button>';
@@ -387,6 +396,11 @@ class DeliveryController extends Controller
                     ->addColumn('grand_total', fn($order) => $this->calculateGrandTotal($order))
                     ->addColumn('address', fn($order) => optional($order->b2bAddress)->full_address ?? 'N/A')
                     ->addColumn('address_notes', fn($order) => optional($order->b2bAddress)->address_notes ?? 'N/A')
+                    ->addColumn('delivery_schedule', function($delivery) {
+                        return $delivery->delivery->delivery_datetime
+                            ? \Carbon\Carbon::parse($delivery->delivery->delivery_datetime)->format('Y-m-d H:i')
+                            : 'Not Scheduled';
+                    })
                     ->addColumn('action', function ($order) {
                         $status = $order->delivery->status ?? 'unknown';
 

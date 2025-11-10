@@ -19,10 +19,21 @@ class ChatController extends Controller
 
     public function getUsers()
     {
-        $currentUserId = Auth::id();
+        $currentUser = Auth::user();
+        $currentUserId = $currentUser->id;
 
-        $users = User::where('id', '!=', $currentUserId)->whereIn('role', ['b2b','deliveryrider','salesofficer', 'superadmin'])
-            ->with(['userLog' => function ($query) {
+        // Start the base query for users, excluding the current user.
+        $query = User::where('id', '!=', $currentUserId)
+            ->whereIn('role', ['b2b', 'deliveryrider', 'salesofficer', 'superadmin']);
+
+        // --- NEW LOGIC: Block b2b to b2b chat visibility ---
+        if ($currentUser->role === 'b2b') {
+            // If the current user is 'b2b', restrict the list of recipients to non-b2b roles.
+            $query->where('role', '!=', 'b2b');
+        }
+        // -----------------------------------------------------
+
+        $users = $query->with(['userLog' => function ($query) {
                 $query->latest('logged_at')->limit(1);
             }])
             ->get()
@@ -78,9 +89,24 @@ class ChatController extends Controller
             'text' => 'nullable|string',
         ]);
 
+        $sender = Auth::user();
+        $recipientId = $request->recipient_id;
+
+        // Fetch the recipient to check their role
+        $recipient = User::findOrFail($recipientId);
+
+        // --- NEW LOGIC: Block b2b to b2b chat restriction ---
+        if ($sender->role === 'b2b' && $recipient->role === 'b2b') {
+            // Return an error response to prevent the message from being sent
+            return response()->json([
+                'error' => 'Chat is restricted: B2B users cannot message other B2B users.'
+            ], 403);
+        }
+        // -----------------------------------------------------
+
         $message = Message::create([
-            'sender_id' => Auth::id(),
-            'recipient_id' => $request->recipient_id,
+            'sender_id' => $sender->id, // Use $sender->id now that we fetched the user
+            'recipient_id' => $recipientId,
             'text' => $request->text,
             'is_file' => null, // handle file later
         ]);
