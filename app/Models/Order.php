@@ -26,11 +26,15 @@ class Order extends Model
     public function delivery()
     {
         return $this->hasOne(Delivery::class);
+        return $this->hasOne(Delivery::class, 'order_id');
     }
 
     public function b2bAddress()
     {
         return $this->belongsTo(B2BAddress::class, 'b2b_address_id');
     }
-    
+    public function customer()
+    {
+        return $this->belongsTo(User::class, 'customer_id'); // Adjust if customer is in another table
+    }
 }

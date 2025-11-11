@@ -67,10 +67,20 @@
             method="POST">
             @csrf
             <input type="hidden" name="delivery_id" id="delivery_id">
-            <div class="mb-3">
-                <label for="proofImage" class="form-label">Select Proof Image</label>
-                <input type="file" class="form-control" id="proofImage" name="proof_delivery" accept="image/*" required>
-            </div>
+            <div class="form-group mb-3">
+        <label for="proof_delivery">Proof of Delivery (Required)</label>
+        <input type="file" name="proof_delivery" id="proof_delivery" class="form-control" accept="image/*" required>
+        </div>
+
+        <div class="form-group mb-3">
+            <label for="delivery_receipt">Delivery Receipt (Required)</label>
+            <input type="file" name="delivery_receipt" id="delivery_receipt" class="form-control" accept="image/*" required>
+        </div>
+
+        <div class="form-group mb-3">
+            <label for="sales_invoice">Sales Invoice (Required)</label>
+            <input type="file" name="sales_invoice" id="sales_invoice" class="form-control" accept="image/*" required>
+        </div>
         </form>
         @slot('footer')
         <button type="button" class="btn btn-sm btn-inverse-secondary" data-bs-dismiss="modal">Cancel</button>

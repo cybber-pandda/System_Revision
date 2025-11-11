@@ -445,11 +445,29 @@ class DeliveryController extends Controller
 
                         if ($status === 'delivered' && $order->delivery->proof_delivery) {
                             $proofBtn = '<button class="btn btn-sm btn-inverse-info ms-2 view-proof-btn" 
-                            data-proof="' . asset($order->delivery->proof_delivery) . '">
-                        <i class="link-icon" data-lucide="eye"></i> View Proof
-                     </button>';
-                            return $badge . $proofBtn;
+                                            data-proof="' . asset($order->delivery->proof_delivery) . '">
+                                            <i class="link-icon" data-lucide="eye"></i> View Proof
+                                        </button>';
+
+                            $receiptBtn = '';
+                            if ($order->delivery->delivery_receipt) {
+                                $receiptBtn = '<button class="btn btn-sm btn-inverse-primary ms-2 view-receipt-btn" 
+                                                    data-receipt="' . asset($order->delivery->delivery_receipt) . '">
+                                                    <i class="link-icon" data-lucide="file-text"></i> View Receipt
+                                                </button>';
+                            }
+
+                            $invoiceBtn = '';
+                            if ($order->delivery->sales_invoice) {
+                                $invoiceBtn = '<button class="btn btn-sm btn-inverse-success ms-2 view-invoice-btn" 
+                                                    data-invoice="' . asset($order->delivery->sales_invoice) . '">
+                                                    <i class="link-icon" data-lucide="file-text"></i> View Invoice
+                                                </button>';
+                            }
+
+                            return $proofBtn . $receiptBtn . $invoiceBtn;
                         }
+
 
                         return $badge;
                     })
@@ -504,29 +522,47 @@ class DeliveryController extends Controller
     {
         $request->validate([
             'delivery_id' => 'required|exists:deliveries,id',
-            'proof_delivery' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'proof_delivery' => 'required|image|:jpeg,png,jpg|max:2048',
+            'delivery_receipt' => 'nullable|image|:jpeg,png,jpg|max:2048',
+            'sales_invoice' => 'nullable|image|:jpeg,png,jpg|max:2048',
         ]);
 
         $delivery = Delivery::findOrFail($request->delivery_id);
+        $destinationPath = public_path('assets/upload');
 
-        if ($request->hasFile('proof_delivery')) {
-            $file = $request->file('proof_delivery');
-            $destinationPath = public_path('assets/upload');
-            $filename = uniqid('proof_') . '.' . $file->getClientOriginalExtension();
+            // 🧾 Make sure files exist — fallback check
+        if (
+            !$request->hasFile('proof_delivery') &&
+            !$request->hasFile('delivery_receipt') &&
+            !$request->hasFile('sales_invoice')
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No file was uploaded.'
+            ], 400);
+        }
 
-            if (!empty($delivery->proof_delivery)) {
-                $existingPath = public_path($delivery->proof_delivery);
-                if (file_exists($existingPath)) {
-                    @unlink($existingPath);
-                }
-            }
+        // 🧾 Handle Proof of Delivery (required)
+        $proofFile = $request->file('proof_delivery');
+        $proofName = uniqid('proof_') . '.' . $proofFile->getClientOriginalExtension();
+        $proofFile->move($destinationPath, $proofName);
+        $delivery->proof_delivery = 'assets/upload/' . $proofName;
 
-            $file->move($destinationPath, $filename);
+        // 📦 Handle Delivery Receipt (required)
+        $receiptFile = $request->file('delivery_receipt');
+        $receiptName = uniqid('receipt_') . '.' . $receiptFile->getClientOriginalExtension();
+        $receiptFile->move($destinationPath, $receiptName);
+        $delivery->delivery_receipt = 'assets/upload/' . $receiptName;
 
-            $delivery->delivery_date = Carbon::now();
-            $delivery->proof_delivery = 'assets/upload/' . $filename;
-            $delivery->status = 'delivered';
-            $delivery->save();
+        // 💰 Handle Sales Invoice (required)
+        $invoiceFile = $request->file('sales_invoice');
+        $invoiceName = uniqid('invoice_') . '.' . $invoiceFile->getClientOriginalExtension();
+        $invoiceFile->move($destinationPath, $invoiceName);
+        $delivery->sales_invoice = 'assets/upload/' . $invoiceName;
+        
+        $delivery->delivery_date = Carbon::now();
+        $delivery->status = 'delivered';
+        $delivery->save();
 
             if ($delivery->order?->order_number) {
                 preg_match('/REF (\d+)-/', $delivery->order->order_number, $matches);
@@ -562,15 +598,15 @@ class DeliveryController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Proof of delivery uploaded successfully.',
-                'file_path' => $delivery->proof_delivery
+                'file_paths' => [
+                    'proof_delivery' => $delivery->proof_delivery,
+                    'delivery_receipt' => $delivery->delivery_receipt,
+                    'sales_invoice' => $delivery->sales_invoice,
+                ],
             ]);
         }
 
-        return response()->json([
-            'success' => false,
-            'message' => 'No file was uploaded.'
-        ], 400);
-    }
+    
 
     public function cancelDelivery(Request $request, $id)
     {

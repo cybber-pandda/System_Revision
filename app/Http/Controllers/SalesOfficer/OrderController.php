@@ -329,5 +329,63 @@ class OrderController extends Controller
                 'page'
             ));
     }
+    // Display Proof & Documents page
+public function proof_documents(Request $request)
+{
+    if (!Auth::check()) {
+        $page = 'Sign In';
+        $companysettings = \DB::table('company_settings')->first();
+        return response()
+            ->view('auth.login', compact('page', 'companysettings'))
+            ->header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', 'Sat, 01 Jan 1990 00:00:00 GMT');
+    }
+
+    $user = Auth::user();
+
+    if ($user->role === 'salesofficer') {
+        if ($request->ajax()) {
+            $query = Order::with(['customer', 'delivery'])
+                ->whereHas('delivery', function ($q) {
+                    $q->where('status', 'delivered')
+                      ->whereNotNull('proof_delivery');
+                })
+                ->latest();
+
+            return DataTables::of($query)
+                    ->addColumn('customer_name', fn($pr) => optional($pr->user)->name ?? 'N/A')
+                    ->addColumn('total_items', fn($pr) => $pr->items->sum('quantity'))
+                    ->addColumn('status', fn($order) => '<span class="badge bg-success text-white">Delivered</span>')
+                    ->addColumn('proof_delivery', function ($order) {
+                        return $order->delivery->proof_delivery
+                            ? '<a href="' . asset($order->delivery->proof_delivery) . '" target="_blank" class="btn btn-sm btn-success p-2">
+                                    <i class="link-icon" data-lucide="file-check"></i> View
+                            </a>'
+                            : '<span class="badge bg-warning text-dark">Pending</span>';
+                    })
+                    ->addColumn('delivery_receipt', function ($order) {
+                        return $order->delivery->delivery_receipt
+                            ? '<a href="' . asset($order->delivery->delivery_receipt) . '" target="_blank" class="btn btn-sm btn-info p-2">
+                                    <i class="link-icon" data-lucide="file"></i> View
+                            </a>'
+                            : '<span class="badge bg-warning text-dark">Pending</span>';
+                    })
+                    ->addColumn('sales_invoice', function ($order) {
+                        return $order->delivery->sales_invoice
+                            ? '<a href="' . asset($order->delivery->sales_invoice) . '" target="_blank" class="btn btn-sm btn-primary p-2">
+                                    <i class="link-icon" data-lucide="file-text"></i> View
+                            </a>'
+                            : '<span class="badge bg-warning text-dark">Pending</span>';
+                    })
+                    ->rawColumns(['status', 'proof_delivery', 'delivery_receipt', 'sales_invoice'])
+                    ->make(true);
+                    }
+
+        return view('pages.admin.salesofficer.v_proofDocuments', ['page' => 'Proof & Documents']);
+    }
+
+    return redirect()->route('home')->with('info', 'Redirected to your dashboard.');
+}
 
 }

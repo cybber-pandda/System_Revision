@@ -117,7 +117,9 @@ Route::middleware(['prevent-back-history', 'auth', 'verified', 'check.status'])-
         Route::post('/rejected-payments/store', [App\Http\Controllers\SalesOfficer\ACPaymentController::class, 'storeRejectedPayment'])->name('rejected-payments.store');
         // Cancelled Quotations List
         Route::get('/cancelled-quotations/all', [App\Http\Controllers\SalesOfficer\QuotationsController::class, 'cancelledQuotations'])->name('cancelled-quotations.index');
-
+        // Proof & Documents
+        Route::get('/proof-documents', [App\Http\Controllers\SalesOfficer\OrderController::class, 'proof_documents'])->name('proof.documents');
+        Route::get('/proof-documents/data', [App\Http\Controllers\SalesOfficer\OrderController::class, 'proof_documents'])->name('proof.documents.data'); // optional: for AJAX endpoint if needed
 
     });
 

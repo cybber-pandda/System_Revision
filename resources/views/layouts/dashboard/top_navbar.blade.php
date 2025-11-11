@@ -171,6 +171,8 @@
                             <li class="category-heading text-dark fw-bolder">Sales Invoice</li>
                             <li class="nav-item {{ Route::is('salesofficer.sales.invoice') ? 'active' : '' }}"><a class="nav-link" href="{{ route('salesofficer.sales.invoice') }}">B2B Sales Invoice</a></li>
                             <li class="nav-item {{ Route::is('salesofficer.sent-sales-invoice.index') ? 'active' : '' }}"><a class="nav-link" href="{{ route('salesofficer.sent-sales-invoice.index') }}">Sent Sales Invoice HIstory</a></li>
+                            <li class="nav-item {{ Route::is('salesofficer.proof.documents') ? 'active' : '' }}"><a class="nav-link" href="{{ route('salesofficer.proof.documents') }}"><span class="menu-title">Proof & Documents</span></a></li>
+
                         </ul>
                     </div>
                 </li>

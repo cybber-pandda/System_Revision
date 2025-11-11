@@ -108,7 +108,9 @@ $(document).ready(function () {
     $(document).on("click", ".mark-delivered-btn", function () {
         const deliveryId = $(this).data("id");
         $("#delivery_id").val(deliveryId);
-        $("#proofImage").val("");
+        $("#proof_delivery").val("");
+        $("#delivery_receipt").val("");     // optional: reset other inputs
+        $("#sales_invoice").val("");
         $("#uploadProofModal").modal("show");
         $(".modal-title").text("Proof of Delivery");
     });
@@ -153,6 +155,20 @@ $(document).ready(function () {
     $(document).on("click", ".view-proof-btn", function () {
         const imageUrl = $(this).data("proof");
         $("#proofImagePreview").attr("src", imageUrl);
+        $("#viewProofModal").modal("show");
+    });
+
+        // View Delivery Receipt
+    $(document).on("click", ".view-receipt-btn", function () {
+        const imageUrl = $(this).data("receipt");
+        $("#proofImagePreview").attr("src", imageUrl); // reuse same modal
+        $("#viewProofModal").modal("show");
+    });
+
+    // View Sales Invoice
+    $(document).on("click", ".view-invoice-btn", function () {
+        const imageUrl = $(this).data("invoice");
+        $("#proofImagePreview").attr("src", imageUrl); // reuse same modal
         $("#viewProofModal").modal("show");
     });
 
